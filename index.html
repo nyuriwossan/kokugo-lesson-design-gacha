@@ -1,0 +1,1977 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>中学校国語科 授業設計ガチャ</title>
+<meta name="description" content="教材と目標を固定し、授業への別ルートを引くためのツール。完成指導案ではなく、授業づくりの叩き台を提示します。">
+<style>
+/* ============================================================
+   中学校国語科 授業設計ガチャ
+   配色: 半紙白 × 墨 × 鉄紺(主) × 朱(印) × 罫線鼠
+   外部通信なし / システムフォントのみ
+   ============================================================ */
+:root {
+  --paper: #f7f5f0;
+  --paper-deep: #efece4;
+  --ink: #2b2a28;
+  --ink-soft: #5c5951;
+  --kon: #27436b;      /* 鉄紺: 主要アクション */
+  --kon-deep: #1c3252;
+  --shu: #b0492a;      /* 朱: ガチャ・印 */
+  --rule: #d8d2c6;
+  --card: #fffdf9;
+  --warn-bg: #f6ead9;
+  --warn-ink: #7a4a12;
+  --ok: #3d6b4f;
+  --radius: 14px;
+  --shadow: 0 1px 3px rgba(43,42,40,.08), 0 4px 14px rgba(43,42,40,.06);
+  --serif: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", serif;
+  --sans: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.65;
+  overflow-x: hidden;
+}
+#wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 140px; }
+
+/* ---- ヘッダー ---- */
+.app-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 2px 10px;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 14px;
+}
+.app-header .brand {
+  font-family: var(--serif);
+  font-weight: 600; font-size: 17px; letter-spacing: .06em;
+  cursor: pointer;
+}
+.brand .brand-sub { font-size: 11px; color: var(--ink-soft); display:block; letter-spacing:.14em; font-family: var(--sans); }
+.header-actions { display: flex; gap: 8px; }
+
+/* ---- 進行状況 ---- */
+.progress { display: flex; gap: 6px; margin: 4px 0 16px; align-items: center; }
+.progress .step-dot {
+  flex: 1; height: 4px; border-radius: 2px; background: var(--rule);
+}
+.progress .step-dot.done { background: var(--kon); }
+.progress .step-dot.now { background: var(--shu); }
+.step-label { font-size: 12px; color: var(--ink-soft); letter-spacing: .08em; margin-bottom: 4px; }
+
+h1 { font-family: var(--serif); font-size: 26px; line-height: 1.4; margin: 18px 0 8px; letter-spacing: .04em; }
+h2 { font-family: var(--serif); font-size: 20px; margin: 22px 0 10px; letter-spacing: .04em; }
+h3 { font-size: 15px; margin: 16px 0 6px; color: var(--kon-deep); }
+p  { margin: 8px 0; }
+.small { font-size: 13px; color: var(--ink-soft); }
+
+/* ---- カード ---- */
+.card {
+  background: var(--card); border: 1px solid var(--rule);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 16px; margin: 12px 0; position: relative;
+}
+.notice {
+  background: var(--warn-bg); color: var(--warn-ink);
+  border: 1px solid #e4cba3; border-radius: 10px;
+  padding: 10px 12px; font-size: 13px; margin: 10px 0;
+}
+.notice.blue { background: #e8edf5; color: var(--kon-deep); border-color: #c3cede; }
+
+/* ---- ボタン ---- */
+button { font-family: var(--sans); }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 48px; padding: 10px 18px;
+  border-radius: 12px; border: 1px solid var(--rule);
+  background: var(--card); color: var(--ink);
+  font-size: 16px; cursor: pointer;
+  transition: transform .05s ease, background .15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:active { transform: scale(.98); }
+.btn.primary { background: var(--kon); border-color: var(--kon); color: #fff; }
+.btn.primary:active { background: var(--kon-deep); }
+.btn.gacha { background: var(--shu); border-color: var(--shu); color: #fff; font-family: var(--serif); letter-spacing: .08em; }
+.btn.ghost { background: transparent; }
+.btn.small { min-height: 40px; font-size: 13.5px; padding: 6px 12px; border-radius: 10px; }
+.btn.block { width: 100%; }
+.btn.danger { color: #93321a; border-color: #d8b0a2; }
+.btn:focus-visible, .choice:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 3px solid rgba(39,67,107,.5); outline-offset: 2px;
+}
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+.btn-row .btn { flex: 1; min-width: 130px; }
+
+/* ---- 選択肢（チップ / リスト） ---- */
+.choice-group { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 4px; }
+.choice {
+  min-height: 44px; padding: 9px 14px;
+  border: 1.5px solid var(--rule); border-radius: 999px;
+  background: var(--card); font-size: 14.5px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--ink);
+}
+.choice[aria-pressed="true"] {
+  border-color: var(--kon); background: #e8edf5; color: var(--kon-deep); font-weight: 600;
+}
+.choice[aria-pressed="true"]::before { content: "✓"; font-size: 12px; }
+.choice-list { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+.choice-list .choice { border-radius: 12px; justify-content: flex-start; width: 100%; text-align: left; }
+
+/* ---- 入力 ---- */
+input[type=text], textarea, select {
+  width: 100%; font-size: 16px; color: var(--ink);
+  border: 1.5px solid var(--rule); border-radius: 10px;
+  padding: 11px 12px; background: var(--card);
+}
+textarea { min-height: 84px; resize: vertical; line-height: 1.6; }
+.field { margin: 14px 0; }
+.field > label { display: block; font-weight: 600; font-size: 14.5px; margin-bottom: 6px; }
+.pii-note { font-size: 12px; color: var(--warn-ink); margin: 4px 0 6px; }
+.example { font-size: 12.5px; color: var(--ink-soft); margin-top: 4px; }
+
+/* ---- 結果カード ---- */
+.plan-card { padding: 16px 16px 12px; }
+.plan-card .tanzaku {
+  position: absolute; top: -1px; right: 14px;
+  writing-mode: vertical-rl;
+  background: var(--kon); color: #fff;
+  font-family: var(--serif); font-size: 12.5px; letter-spacing: .18em;
+  padding: 12px 5px 14px; border-radius: 0 0 6px 6px;
+  box-shadow: var(--shadow);
+}
+.plan-card.alt .tanzaku { background: var(--shu); }
+.plan-title { font-family: var(--serif); font-size: 18px; margin: 0 64px 4px 0; }
+.plan-sec { border-top: 1px dashed var(--rule); padding: 10px 0 4px; margin-top: 10px; }
+.plan-sec .sec-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.sec-name { font-size: 12.5px; letter-spacing: .12em; color: var(--kon-deep); font-weight: 700; }
+.sec-tools { display: flex; gap: 4px; }
+.icon-btn {
+  min-width: 40px; min-height: 36px; border: 1px solid var(--rule);
+  background: var(--card); border-radius: 9px; font-size: 12px; cursor: pointer; color: var(--ink-soft);
+  padding: 2px 8px;
+}
+.icon-btn.locked { background: #e8edf5; border-color: var(--kon); color: var(--kon-deep); }
+.sec-body { margin-top: 4px; font-size: 15px; white-space: pre-wrap; }
+.sec-body ol, .sec-body ul { margin: 4px 0; padding-left: 22px; }
+.reason { background: var(--paper-deep); border-radius: 10px; padding: 9px 12px; font-size: 13.5px; margin-top: 10px; }
+.reason b { color: var(--kon-deep); }
+details.more { margin-top: 10px; }
+details.more summary {
+  cursor: pointer; font-size: 13.5px; color: var(--kon-deep); font-weight: 600;
+  min-height: 44px; display: flex; align-items: center;
+}
+.warn-list { margin: 8px 0; }
+.warn-item { background: var(--warn-bg); color: var(--warn-ink); border-radius: 8px; padding: 8px 10px; font-size: 13px; margin: 6px 0; }
+
+/* ---- フッター固定バー ---- */
+.bottom-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  background: rgba(247,245,240,.96);
+  border-top: 1px solid var(--rule);
+  backdrop-filter: blur(6px);
+  padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
+}
+.bottom-bar .inner { max-width: 720px; margin: 0 auto; display: flex; gap: 10px; }
+.bottom-bar .btn { flex: 1; }
+
+/* ---- モーダル ---- */
+.modal-back {
+  position: fixed; inset: 0; background: rgba(43,42,40,.45); z-index: 50;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.modal {
+  background: var(--card); width: 100%; max-width: 720px;
+  border-radius: 18px 18px 0 0; padding: 18px 18px calc(18px + env(safe-area-inset-bottom));
+  max-height: 82vh; overflow-y: auto;
+}
+.modal h2 { margin-top: 4px; }
+.check-line { display: flex; gap: 10px; align-items: flex-start; min-height: 44px; padding: 6px 0; font-size: 14.5px; }
+.check-line input { width: 22px; height: 22px; margin-top: 2px; flex: none; }
+
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(96px + env(safe-area-inset-bottom));
+  background: var(--ink); color: #fff; border-radius: 999px;
+  padding: 9px 18px; font-size: 13.5px; z-index: 60;
+  opacity: 0; transition: opacity .25s; pointer-events: none;
+}
+.toast.show { opacity: 1; }
+
+.top-hero { text-align: center; padding: 28px 6px 8px; }
+.top-hero .stamp {
+  display: inline-block; font-family: var(--serif);
+  border: 2px solid var(--shu); color: var(--shu);
+  border-radius: 8px; padding: 6px 10px; font-size: 13px; letter-spacing: .2em;
+  transform: rotate(-2deg); margin-bottom: 14px;
+}
+.top-hero h1 { margin: 4px 0 6px; }
+.top-hero .lede { color: var(--ink-soft); font-size: 14.5px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+
+/* ============================================================
+   印刷 CSS（A4）
+   ============================================================ */
+#print-root { display: none; }
+@page { size: A4 portrait; margin: 12mm 14mm; }
+@media print {
+  body { background: #fff; font-size: 10.5pt; line-height: 1.5; }
+  #wrap, .bottom-bar, .modal-back, .toast, .no-print { display: none !important; }
+  #print-root { display: block; }
+  .print-sheet { width: 100%; box-shadow: none; border: none; }
+  .print-sheet h1 { font-size: 15pt; margin: 0 0 6pt; border-bottom: 1.2pt solid #333; padding-bottom: 3pt; font-family: var(--serif); }
+  .print-sheet h2 { font-size: 11.5pt; margin: 8pt 0 3pt; font-family: var(--serif); }
+  .p-meta { display: flex; flex-wrap: wrap; gap: 4pt 14pt; font-size: 9.5pt; margin-bottom: 6pt; }
+  .p-block { border: .6pt solid #888; border-radius: 3pt; padding: 5pt 7pt; margin: 4pt 0; break-inside: avoid; page-break-inside: avoid; }
+  .p-block .p-label { font-size: 8.5pt; letter-spacing: .15em; color: #444; font-weight: 700; }
+  .p-block .p-body { white-space: pre-wrap; }
+  .p-memo { min-height: 60pt; }
+  .p-foot { font-size: 8pt; color: #666; margin-top: 6pt; }
+  .page-break { break-before: page; page-break-before: always; }
+  .avoid-break { break-inside: avoid; page-break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <header class="app-header no-print">
+    <div class="brand" id="brand-home" role="button" tabindex="0" aria-label="トップへ戻る">
+      授業設計ガチャ
+      <span class="brand-sub">中学校国語科・光村図書対応</span>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" id="btn-save-draft" aria-label="下書きをこの端末に保存">保存</button>
+    </div>
+  </header>
+  <main id="app"></main>
+</div>
+<div class="bottom-bar no-print" id="bottom-bar" hidden><div class="inner" id="bottom-bar-inner"></div></div>
+<div id="modal-slot"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div id="print-root" aria-hidden="true"></div>
+<script>
+/* ===== DATA ===== */
+"use strict";
+
+const APP_VERSION = "0.9.0-mvp";
+const STORAGE_KEY = "kokugo-jugyo-gacha-draft-v1";
+
+const textbookConfig = {
+  publisher: "光村図書",
+  subject: "国語",
+  edition: "要確認（版により教材名・構成が異なります）",
+  grades: [1, 2, 3]
+};
+
+/* --- 教材種別 --- */
+const CATEGORIES = {
+  lit:   { id: "lit",   label: "文学的文章" },
+  exp:   { id: "exp",   label: "説明的文章" },
+  cls:   { id: "cls",   label: "古典" },
+  poem:  { id: "poem",  label: "詩" },
+  tanka: { id: "tanka", label: "短歌・俳句" },
+  gram:  { id: "gram",  label: "文法" },
+  vocab: { id: "vocab", label: "漢字・語彙" },
+  info:  { id: "info",  label: "情報" },
+  speak: { id: "speak", label: "話すこと・聞くこと" },
+  write: { id: "write", label: "書くこと" },
+  read:  { id: "read",  label: "読書" },
+  mixed: { id: "mixed", label: "複合教材" }
+};
+
+/* --- 本時の段階（教材種別ごと） --- */
+const STAGES_BY_CATEGORY = {
+  lit: ["初読・感想","内容把握","人物像","人物関係","心情・認識の変化","場面・構成","表現の効果","解釈の比較","主題・作品の価値","学習のまとめ"],
+  exp: ["初読・問いづくり","内容把握","文章構成","段落関係","事実と意見","具体と抽象","根拠と主張","図表と本文","要旨","筆者の論の評価","学習のまとめ"],
+  cls: ["音読","歴史的仮名遣い・語句","内容理解","現代語訳","表現","人物のものの見方","現代との比較","作品の価値","学習のまとめ"],
+  poem: ["音読","語句・表現","情景","心情","リズム","表現技法","解釈の比較","鑑賞","創作"],
+  tanka: ["音読","語句・表現","情景","心情","リズム","表現技法","解釈の比較","鑑賞","創作"],
+  write: ["題材設定","情報収集","構成","記述","推敲","共有・評価"],
+  speak: ["話題設定","情報整理","構成","発表","質疑","話し合い","振り返り"],
+  gram: ["きまりの発見","用法の整理","練習","活用・運用","学習のまとめ"],
+  vocab: ["語句の理解","使い分け","活用・運用","学習のまとめ"],
+  info: ["情報の収集","情報の整理","信頼性の検討","引用・出典","活用・運用"],
+  read: ["選書","読書","紹介・共有","振り返り"],
+  mixed: ["内容把握","比較・関連づけ","考えの形成","共有","学習のまとめ"]
+};
+
+/* --- 目標タイプ --- */
+const OBJECTIVE_TYPES = ["内容を捉える","根拠を挙げる","比較する","関係づける","説明する","解釈する","評価する","要約する","表現する","推敲する","話し合う"];
+
+const OBJECTIVE_TYPES_BY_CATEGORY = {
+  lit: ["内容を捉える","根拠を挙げる","比較する","関係づける","説明する","解釈する"],
+  exp: ["内容を捉える","根拠を挙げる","比較する","関係づける","説明する","要約する","評価する"],
+  cls: ["内容を捉える","説明する","比較する","解釈する"],
+  poem: ["解釈する","比較する","説明する","表現する"],
+  tanka: ["解釈する","比較する","説明する","表現する"],
+  write: ["表現する","推敲する","関係づける","説明する"],
+  speak: ["話し合う","説明する","評価する","関係づける"],
+  gram: ["内容を捉える","説明する","比較する"],
+  vocab: ["内容を捉える","説明する","比較する"],
+  info: ["内容を捉える","評価する","関係づける","説明する"],
+  read: ["説明する","評価する","比較する"],
+  mixed: ["比較する","関係づける","説明する","評価する"]
+};
+
+/* 目標の自由入力を簡易判定するためのキーワード（先勝ち） */
+const OBJECTIVE_KEYWORDS = [
+  ["根拠を挙げる", ["根拠","叙述を基","叙述をもと","本文を基","裏付け"]],
+  ["比較する",     ["比較","比べ","対比","違いを"]],
+  ["要約する",     ["要約","要旨をまとめ","短くまとめ"]],
+  ["推敲する",     ["推敲","書き直","文章を整え"]],
+  ["話し合う",     ["話し合","伝え合","交流し","議論"]],
+  ["評価する",     ["評価","批評","吟味","妥当"]],
+  ["解釈する",     ["解釈","読みを","味わ"]],
+  ["関係づける",   ["関係","関連づけ","結び付け","結びつけ","つなげ"]],
+  ["要約する",     ["まとめることができる"]],
+  ["表現する",     ["書くことができる","創作","表現することができる","文章を書く"]],
+  ["説明する",     ["説明"]],
+  ["内容を捉える", ["捉え","把握","読み取","理解"]]
+];
+
+/* 見取りにくい述語（警告対象） */
+const VAGUE_PREDICATES = ["理解する","理解できる","深める","深めることができる","考える","考えることができる","味わう","親しむ","意識する","興味をもつ","関心をもつ"];
+
+/* --- 思考操作 --- */
+const THINKING_OPS = ["比較する","分類する","関係づける","順序づける","根拠づける","具体化する","抽象化する","言い換える","要約する","推論する","評価する","解釈する","反例を考える","条件を変えて考える","複数の解釈を比べる"];
+
+const OPS_BY_OBJECTIVE = {
+  "内容を捉える": ["要約する","言い換える","順序づける","関係づける"],
+  "根拠を挙げる": ["根拠づける","比較する","推論する"],
+  "比較する":     ["比較する","分類する","評価する"],
+  "関係づける":   ["関係づける","順序づける","抽象化する"],
+  "説明する":     ["根拠づける","言い換える","具体化する"],
+  "解釈する":     ["解釈する","推論する","複数の解釈を比べる"],
+  "評価する":     ["評価する","反例を考える","根拠づける"],
+  "要約する":     ["要約する","抽象化する","順序づける"],
+  "表現する":     ["具体化する","条件を変えて考える","言い換える"],
+  "推敲する":     ["評価する","言い換える","条件を変えて考える"],
+  "話し合う":     ["比較する","関係づける","評価する"]
+};
+
+/* --- 教材マスタ（版確定までの参考データ。編集・差し替え前提） --- */
+function mat(id, grade, title, category, extra) {
+  return Object.assign({ id, grade, title, category,
+    publisher: "光村図書", edition: "要確認",
+    stages: STAGES_BY_CATEGORY[category],
+    objectiveTypes: OBJECTIVE_TYPES_BY_CATEGORY[category],
+    notes: "" }, extra || {});
+}
+const MATERIALS = [
+  /* 中1 */
+  mat("g1-001", 1, "シンシュン", "lit"),
+  mat("g1-002", 1, "ちょっと立ち止まって", "exp"),
+  mat("g1-003", 1, "詩の世界", "poem"),
+  mat("g1-004", 1, "星の花が降るころに", "lit"),
+  mat("g1-005", 1, "大人になれなかった弟たちに……", "lit"),
+  mat("g1-006", 1, "「不便」の価値を見つめ直す", "exp"),
+  mat("g1-007", 1, "少年の日の思い出", "lit"),
+  mat("g1-008", 1, "蓬莱の玉の枝（竹取物語）", "cls"),
+  mat("g1-009", 1, "今に生きる言葉（矛盾）", "cls"),
+  mat("g1-010", 1, "文法（単語・文節など）", "gram"),
+  mat("g1-011", 1, "書くこと（意見文・案内文など）", "write"),
+  mat("g1-012", 1, "話すこと・聞くこと（スピーチ・話し合いなど）", "speak"),
+  /* 中2 */
+  mat("g2-001", 2, "アイスプラネット", "lit"),
+  mat("g2-002", 2, "枕草子", "cls"),
+  mat("g2-003", 2, "クマゼミ増加の原因を探る", "exp"),
+  mat("g2-004", 2, "盆土産", "lit"),
+  mat("g2-005", 2, "字のない葉書", "lit"),
+  mat("g2-006", 2, "モアイは語る―地球の未来", "exp"),
+  mat("g2-007", 2, "扇の的（平家物語）", "cls"),
+  mat("g2-008", 2, "仁和寺にある法師（徒然草）", "cls"),
+  mat("g2-009", 2, "漢詩の風景", "cls"),
+  mat("g2-010", 2, "君は「最後の晩餐」を知っているか", "exp"),
+  mat("g2-011", 2, "走れメロス", "lit"),
+  mat("g2-012", 2, "文法（用言・助詞助動詞など）", "gram"),
+  mat("g2-013", 2, "書くこと（意見文・手紙など）", "write"),
+  mat("g2-014", 2, "話すこと・聞くこと（プレゼン・討論など）", "speak"),
+  /* 中3 */
+  mat("g3-001", 3, "握手", "lit"),
+  mat("g3-002", 3, "学びて時に之を習ふ―「論語」から", "cls"),
+  mat("g3-003", 3, "作られた「物語」を超えて", "exp"),
+  mat("g3-004", 3, "俳句の可能性／俳句を味わう", "tanka"),
+  mat("g3-005", 3, "挨拶―原爆の写真によせて", "poem"),
+  mat("g3-006", 3, "故郷", "lit"),
+  mat("g3-007", 3, "人工知能と創造性（評論）", "exp"),
+  mat("g3-008", 3, "夏草―「おくのほそ道」から", "cls"),
+  mat("g3-009", 3, "万葉・古今・新古今", "tanka"),
+  mat("g3-010", 3, "誰かの代わりに", "exp"),
+  mat("g3-011", 3, "文法のまとめ", "gram"),
+  mat("g3-012", 3, "書くこと（批評文・課題作文など）", "write"),
+  mat("g3-013", 3, "話すこと・聞くこと（討論・面接など）", "speak")
+];
+
+/* --- 環境 --- */
+const ENVIRONMENTS = ["紙と筆記用具のみ","教科書","ワークシート","大型提示装置","生徒用端末","ミニホワイトボード","付箋","辞書"];
+
+/* --- 固定したい要素 / 避けたい活動 --- */
+const FIXED_ELEMENTS = ["音読を入れる","個人で考える時間を入れる","ペア交流を入れる","グループ交流を入れる","全体交流を入れる","書く活動を入れる","振り返りを入れる","現在の中心発問を残す","現在の活動を残す"];
+const AVOIDED_ELEMENTS = ["全員発表","グループ活動","ペア活動","移動を伴う活動","端末利用","長文記述","即興発表","競争形式","多数決","宿題への持ち越し"];
+
+/* --- 学級全体の学習傾向（完全選択式） --- */
+const TENDENCIES = {
+  "読むこと": ["本文の内容理解に時間がかかる","読む速度の差が大きい","叙述を根拠にすることが難しい","感想と解釈が混同されやすい","複数の叙述を関連づけることが難しい","文章構成を捉えることが難しい","抽象的な文章の理解に差がある"],
+  "書くこと": ["書き始めるまでに時間がかかる","考えはあるが文章化が難しい","意見と根拠がつながりにくい","長い記述への負担が大きい","推敲が表面的になりやすい","書く量に個人差が大きい"],
+  "話すこと・聞くこと": ["全体での発言が少ない","一部の生徒に発言が偏りやすい","相手の意見を受けて話すことが難しい","話し合いが感想交換で終わりやすい","話し合いの目的を見失いやすい","交流前の個人思考が必要である"],
+  "学習全般": ["学習速度の差が大きい","活動の見通しを示す必要がある","一度に複数の指示を出すと混乱しやすい","個人思考の時間を長めに取りたい","交流への心理的負担に配慮したい","課題への集中が続きにくい","学習成果を記述として残したい"]
+};
+
+/* --- 困っていること --- */
+const CONCERNS = ["導入が決まらない","中心発問が決まらない","発問が広すぎる","発問が浅い","生徒の意見が感想で止まる","本文を根拠にできない","教師との一問一答になる","話し合う必要性が生まれない","一部の生徒だけが話す","意見が一つに偏る","意見が散らばりすぎる","書けない生徒が多い","活動と目標がつながらない","評価する記述が残らない","授業時間に収まらない","振り返りが感想になる","別の授業案が欲しい","特に困りごとはない"];
+
+/* --- 活動マスタ --- */
+function act(o){ return Object.assign({categories:["*"],requires:[],producesEvidence:true,tags:[]},o); }
+const ACTIVITIES = [
+  act({id:"a-line",title:"叙述に線を引き、根拠候補を集める",categories:["lit","exp","cls"],objectiveTypes:["根拠を挙げる","内容を捉える","解釈する"],ops:["根拠づける","比較する"],duration:8,groupType:["individual"],outputType:"marking",steps:["目標に関わる叙述に線を引く","線を引いた理由を一言添える","候補を二つ以上残す"],caution:"線を引くだけで終わらせず、理由の言語化まで求める。",tags:["text-evidence"]}),
+  act({id:"a-quote",title:"必要な叙述を書き抜く",categories:["lit","exp","cls"],objectiveTypes:["根拠を挙げる","内容を捉える"],ops:["根拠づける","要約する"],duration:8,groupType:["individual"],outputType:"short-writing",steps:["観点を確認する","観点に合う叙述を書き抜く","ページ・行を記録する"],caution:"書き抜きの分量ではなく、観点との対応を見る。",tags:["text-evidence"]}),
+  act({id:"a-onesent",title:"考えを一文でまとめる",objectiveTypes:["要約する","内容を捉える","説明する"],ops:["要約する","抽象化する","言い換える"],duration:7,groupType:["individual"],outputType:"short-writing",steps:["キーワードを選ぶ","一文の型に当てはめて書く","隣接する叙述と矛盾がないか確かめる"],caution:"短くすること自体が目的にならないようにする。"}),
+  act({id:"a-table",title:"比較表に整理する",objectiveTypes:["比較する","関係づける","評価する"],ops:["比較する","分類する"],duration:12,groupType:["individual","pair"],outputType:"chart",steps:["比較の観点を決める","表に本文の言葉で書き込む","観点ごとの違いを一言でまとめる"],caution:"観点を教師が示すか生徒が立てるかを、目標に応じて決める。"}),
+  act({id:"a-map",title:"関係図を作る",objectiveTypes:["関係づける","内容を捉える"],ops:["関係づける","順序づける"],duration:15,groupType:["individual","group"],outputType:"chart",steps:["要素（人物・段落・語句）を書き出す","矢印と一言で関係を示す","図から言えることを一文で書く"],caution:"図の見栄えではなく、矢印に添えた言葉を見取る。"}),
+  act({id:"a-rank",title:"根拠の強さに順位を付ける",categories:["lit","exp","cls"],objectiveTypes:["根拠を挙げる","比較する","評価する"],ops:["比較する","根拠づける","評価する"],duration:12,groupType:["individual","pair"],outputType:"short-writing",steps:["根拠候補を三つ挙げる","強い順に並べる","一位の理由を書く"],caution:"人気投票にならないよう、順位の理由を必ず言語化させる。",tags:["text-evidence"]}),
+  act({id:"a-two",title:"二つの解釈を比べて選ぶ",categories:["lit","poem","tanka","cls"],objectiveTypes:["解釈する","比較する","評価する"],ops:["複数の解釈を比べる","評価する"],duration:15,groupType:["individual","pair"],outputType:"short-writing",steps:["対立する二つの解釈を確認する","それぞれを支える叙述を探す","自分の立場と理由を書く"],caution:"どちらを選んでもよいこと、根拠の質を問うことを先に伝える。",tags:["text-evidence"]}),
+  act({id:"a-explain",title:"根拠を挙げて短く説明する",objectiveTypes:["根拠を挙げる","説明する"],ops:["根拠づける","言い換える"],duration:10,groupType:["individual"],outputType:"short-writing",steps:["主張を一文で書く","本文から根拠を引く","主張と根拠を「なぜなら」でつなぐ"],caution:"本文の根拠と、そこから自分が考えたことを、分けて書かせる。",tags:["text-evidence"]}),
+  act({id:"a-summary",title:"段階的に要約する",categories:["exp","lit","cls"],objectiveTypes:["要約する","内容を捉える"],ops:["要約する","順序づける","抽象化する"],duration:15,groupType:["individual"],outputType:"short-writing",steps:["段落ごとの中心文を選ぶ","中心文をつないで下書きする","字数を決めて削る"],caution:"削る過程で何を残したかを問い、判断を見取る。"}),
+  act({id:"a-rewrite",title:"別の表現に書き換えて比べる",categories:["lit","poem","tanka","write"],objectiveTypes:["解釈する","表現する","説明する"],ops:["言い換える","条件を変えて考える"],duration:12,groupType:["individual"],outputType:"short-writing",steps:["原文の表現を確かめる","別の語や語順に書き換える","原文との印象の違いを書く"],caution:"書き換え自体ではなく、原文の効果への気づきを見取る。"}),
+  act({id:"a-fix",title:"誤答例・弱い説明を修正する",objectiveTypes:["評価する","説明する","推敲する"],ops:["評価する","反例を考える"],duration:10,groupType:["individual","pair"],outputType:"short-writing",steps:["提示された誤答例を読む","どこが弱いか指摘する","本文を根拠に修正する"],caution:"誤答例は実在の生徒の記述を使わず、教師が作成する。",tags:["text-evidence"]}),
+  act({id:"a-addon",title:"相手の説明に補足し合う",objectiveTypes:["説明する","話し合う"],ops:["関係づける","具体化する"],duration:8,groupType:["pair"],outputType:"oral",producesEvidence:false,steps:["一人が説明する","聞き手が根拠を一つ補足する","交代し、補足を自分の記述に反映する"],caution:"補足を受けて記述を修正する時間を必ず取る。"}),
+  act({id:"a-critique",title:"観点を決めて短い批評を書く",categories:["exp","lit","tanka","read"],objectiveTypes:["評価する","解釈する"],ops:["評価する","根拠づける"],duration:15,groupType:["individual"],outputType:"short-writing",steps:["批評の観点を選ぶ","本文から根拠を引く","評価とその理由を書く"],caution:"「良い・悪い」の感想ではなく、観点と根拠を伴わせる。"}),
+  act({id:"a-pairtalk",title:"ペアで説明し、聞いて修正する",objectiveTypes:["説明する","話し合う","根拠を挙げる"],ops:["言い換える","比較する"],duration:10,groupType:["pair"],outputType:"short-writing",steps:["自分の考えを口頭で説明する","相手の考えとの違いを一つ見つける","自分の記述に赤で加筆する"],caution:"交流の目的（比較して修正する）を先に示す。"}),
+  act({id:"a-sort",title:"グループで観点別に分類する",objectiveTypes:["比較する","関係づける","話し合う"],ops:["分類する","比較する"],duration:15,groupType:["group"],outputType:"chart",steps:["各自の考えを短冊に書く","観点を決めて分類する","分類から言えることをまとめる"],caution:"分類の観点そのものを話し合わせると思考が深まる。"}),
+  act({id:"a-whole",title:"全体で考えを比較する",objectiveTypes:["比較する","話し合う","解釈する"],ops:["比較する","評価する"],duration:10,groupType:["whole"],outputType:"oral",producesEvidence:false,steps:["対立点・相違点を板書で整理する","どの考えが本文に合うか検討する","自分の考えの変化をメモする"],caution:"発表会で終わらせず、比較の観点を教師が焦点化する。"}),
+  act({id:"a-paper",title:"書いて回す紙上交流",objectiveTypes:["話し合う","比較する","説明する"],ops:["比較する","関係づける"],duration:12,groupType:["group"],outputType:"short-writing",steps:["自分の考えを書く","用紙を回してコメントを書き合う","戻ってきたコメントを基に修正する"],caution:"声を出さない交流。発言への心理的負担が大きい学級に有効。",tags:["quiet"]}),
+  act({id:"a-wb",title:"ミニホワイトボードで考えを可視化する",objectiveTypes:["比較する","説明する","話し合う"],ops:["比較する","要約する"],duration:12,groupType:["group","whole"],requires:["ミニホワイトボード"],outputType:"board",producesEvidence:false,steps:["考えを短く書く","一斉に提示する","違いの理由を検討する"],caution:"提示後、必ずノートへの記述に戻して残す。"}),
+  act({id:"a-question",title:"本文から問いを作る",categories:["lit","exp","cls","poem","tanka"],objectiveTypes:["内容を捉える","解釈する"],ops:["推論する","比較する"],duration:10,groupType:["individual","pair"],outputType:"short-writing",steps:["読んで引っかかった箇所に印を付ける","「なぜ」「どうして」の形で問いを書く","全体で扱う問いを選ぶ"],caution:"問いの優劣ではなく、本文に基づいているかを見る。"}),
+  act({id:"a-first",title:"初発の感想を観点付きで書く",categories:["lit","poem","tanka","cls"],objectiveTypes:["内容を捉える","表現する"],ops:["言い換える","推論する"],duration:8,groupType:["individual"],outputType:"short-writing",steps:["心に残った叙述を一つ選ぶ","選んだ理由を書く","疑問を一つ書く"],caution:"自由な感想でも「叙述を一つ選ぶ」条件で本文につなぐ。"}),
+  act({id:"a-ondoku",title:"音読（役割読み・追い読みなど）",categories:["lit","cls","poem","tanka"],objectiveTypes:["内容を捉える","解釈する","表現する"],ops:["解釈する"],duration:6,groupType:["whole"],outputType:"oral",producesEvidence:false,steps:["読み方の観点を確認する","形式を決めて音読する","気づいたことを一言メモする"],caution:"音読自体を目的化せず、観点（間・強弱・人物の心情など）を添える。",tags:["ondoku"]}),
+  act({id:"a-structure",title:"文章構成図を作る",categories:["exp"],objectiveTypes:["関係づける","内容を捉える","要約する"],ops:["順序づける","関係づける","抽象化する"],duration:15,groupType:["individual"],outputType:"chart",steps:["段落の役割を確かめる","序論・本論・結論に分ける","段落同士の関係を矢印で示す"],caution:"型に当てはめて終わらせず、そう判断した根拠の段落を言わせる。"}),
+  act({id:"a-factop",title:"事実と意見を仕分ける",categories:["exp","info"],objectiveTypes:["内容を捉える","評価する","比較する"],ops:["分類する","評価する"],duration:10,groupType:["individual","pair"],outputType:"marking",steps:["対象の段落を決める","事実と筆者の意見に色分けする","見分けた手がかり（文末など）をメモする"],caution:"手がかりの言語化までを活動に含める。",tags:["text-evidence"]}),
+  act({id:"a-chartlink",title:"図表と本文を対応づける",categories:["exp","info"],objectiveTypes:["関係づける","根拠を挙げる"],ops:["関係づける","根拠づける"],duration:12,groupType:["individual","pair"],outputType:"marking",steps:["図表が支えている本文の一文を探す","対応を線で結ぶ","図表がなかった場合の説得力を考える"],caution:"「図表があると分かりやすい」で止めず、何を支えているかを問う。",tags:["text-evidence"]}),
+  act({id:"a-koten",title:"古文と現代語訳を対応させて読む",categories:["cls"],objectiveTypes:["内容を捉える","説明する"],ops:["言い換える","関係づける"],duration:12,groupType:["individual","pair"],outputType:"marking",steps:["古文と訳を並べて対応箇所に線を引く","訳しにくい語に印を付ける","内容を一文でまとめる"],caution:"逐語訳の暗記ではなく、対応関係の把握を見取る。"}),
+  act({id:"a-rhythm",title:"音読で調子・リズムを味わい、効果を言葉にする",categories:["cls","poem","tanka"],objectiveTypes:["解釈する","説明する"],ops:["解釈する","比較する"],duration:10,groupType:["whole","pair"],outputType:"short-writing",steps:["複数の読み方で音読する","調子の違いをメモする","作品の内容との関わりを一文で書く"],caution:"「リズムがよい」で止めず、内容との結び付きを問う。"}),
+  act({id:"a-outline",title:"構成メモ（アウトライン)を作る",categories:["write","speak"],objectiveTypes:["表現する","関係づける"],ops:["順序づける","関係づける"],duration:12,groupType:["individual"],outputType:"chart",steps:["伝えたいことを一文で決める","材料を並べ替えて順序を決める","順序の意図をメモする"],caution:"順序の「意図」を書かせることで、構成の学習にする。"}),
+  act({id:"a-revise",title:"観点を一つに絞って推敲する",categories:["write"],objectiveTypes:["推敲する","評価する"],ops:["評価する","言い換える"],duration:12,groupType:["individual","pair"],outputType:"long-writing",steps:["推敲の観点を一つ選ぶ","観点に沿って直す箇所に印を付ける","直す前と後を並べて残す"],caution:"直した「跡」を消させず、前後を比較できる形で残す。"}),
+  act({id:"a-goalcheck",title:"目的を確認してから話し合う",categories:["speak","mixed"],objectiveTypes:["話し合う","評価する"],ops:["比較する","評価する"],duration:15,groupType:["group"],outputType:"short-writing",steps:["話し合いのゴール（決める・広げる・絞る）を確認する","役割を決めて話し合う","結論と、変わった自分の考えを書く"],caution:"「何のために話すか」を板書に残し、途中で立ち戻らせる。"}),
+  act({id:"a-longwrite",title:"まとまった文章を書く",categories:["write","lit","exp"],objectiveTypes:["表現する","説明する","解釈する"],ops:["具体化する","根拠づける"],duration:20,groupType:["individual"],outputType:"long-writing",steps:["構成メモを確かめる","時間を区切って書く","最後の一文を見直す"],caution:"分量ではなく、目標に対応する部分の質を見取る。",tags:["long"]})
+];
+
+/* --- 発問マスタ --- */
+const QUESTIONS = [
+  {id:"q-best-evidence",categories:["lit","exp","cls"],objectiveTypes:["根拠を挙げる","比較する"],template:"「{target}」を最も強く支える叙述はどこだろう。",intention:"いくつかの根拠を比べ、どの叙述が一番自分の考えを支えているか考えさせます。",followUps:["その箇所でなければならない理由は？","別の箇所でも同じ説明ができる？","反対の考えは成立する？"],supportQuestions:["人物の言葉と行動のどちらに注目するとよい？","前後で変化している箇所はある？"]},
+  {id:"q-change",categories:["lit"],objectiveTypes:["内容を捉える","関係づける","解釈する"],template:"{target}は、何をきっかけに、どこからどこへ変わったのだろう。",intention:"変わる前と後を比べながら、変化のきっかけになった叙述を探させます。",followUps:["変わる前はどう書かれていた？","そのきっかけがなかったらどうなっていた？"],supportQuestions:["変化が分かる言葉に線を引いてみよう。"]},
+  {id:"q-why-expr",categories:["lit","poem","tanka"],objectiveTypes:["解釈する","説明する"],template:"作者はなぜ、ここで「{target}」という表現を選んだのだろう。",intention:"別の言葉に置き換えた場合と比べ、作者がこの表現を選んだ意味を考えさせます。",followUps:["別の言葉に置き換えると印象はどう変わる？","同じ表現はほかにも出てくる？"],supportQuestions:["この表現から見える景色・聞こえる音は？"]},
+  {id:"q-two-read",categories:["lit","poem","tanka","cls"],objectiveTypes:["解釈する","比較する","評価する"],template:"「{target}」については二つの読み方ができる。どちらが本文に合うだろう。",intention:"二つの読み方を比べ、どちらが本文に合うかを叙述を手がかりに判断させます。",followUps:["相手の読み方の強い点はどこ？","両方成り立つ可能性はない？"],supportQuestions:["それぞれの読み方を支える叙述を一つずつ探そう。"]},
+  {id:"q-title",categories:["lit","exp"],objectiveTypes:["内容を捉える","解釈する","要約する"],template:"題名「{material}」は、本文の何を指しているのだろう。",intention:"題名と本文を行き来しながら、この文章の中心にあるものを捉えさせます。",followUps:["別の題名を付けるとしたら？","その題名では何が失われる？"],supportQuestions:["題名の言葉が出てくる箇所を全部探そう。"]},
+  {id:"q-structure",categories:["exp"],objectiveTypes:["関係づける","内容を捉える"],template:"この段落がもしなかったら、筆者の説明はどう変わるだろう。",intention:"その段落を消したらどうなるかを想像し、段落の働きに気づかせます。",followUps:["似た役割の段落はほかにある？","筆者はなぜこの順番で並べた？"],supportQuestions:["段落の最初と最後の文だけ読み比べてみよう。"]},
+  {id:"q-claim",categories:["exp"],objectiveTypes:["根拠を挙げる","評価する"],template:"筆者の主張「{target}」を、あなたは受け入れられるか。根拠は十分だろうか。",intention:"筆者の主張と根拠が本当に対応しているか、一歩引いて確かめさせます。",followUps:["根拠として一番弱いのはどれ？","筆者に追加でどんな根拠を求めたい？"],supportQuestions:["主張が書かれている一文と、根拠の段落を線で結ぼう。"]},
+  {id:"q-summary",categories:["exp","lit","cls"],objectiveTypes:["要約する","内容を捉える"],template:"この文章を{target}に伝えるなら、どの内容を残し、どれを削るだろう。",intention:"「誰に伝えるか」を決めることで、残す内容と削る内容を選ばせます。",followUps:["削った内容は本当になくても伝わる？","残した順番に意味はある？"],supportQuestions:["各段落から一文ずつ選ぶところから始めよう。"]},
+  {id:"q-koten-view",categories:["cls"],objectiveTypes:["解釈する","比較する","説明する"],template:"{target}のものの見方は、今の私たちと同じだろうか、違うだろうか。",intention:"昔の人のものの見方を今の自分たちと比べ、同じところと違うところを言葉にさせます。",followUps:["同じだと思った根拠の叙述は？","時代が変わっても変わらないものは何？"],supportQuestions:["人物の行動と、その理由が書かれた部分を探そう。"]},
+  {id:"q-word-choice",categories:["poem","tanka"],objectiveTypes:["解釈する","比較する"],template:"この一語（{target}）を消したら、作品の何が失われるだろう。",intention:"一つの語に注目し、その語があることで作品に何が生まれているか考えさせます。",followUps:["代わりの語を入れると何が変わる？","その語は他の語とどう響き合っている？"],supportQuestions:["五感のどれに関わる語か考えてみよう。"]},
+  {id:"q-write-reader",categories:["write"],objectiveTypes:["表現する","推敲する","関係づける"],template:"読み手が「{target}」だとしたら、どの一文を最初に置くと伝わるだろう。",intention:"読み手を具体的に思い浮かべて、書き方や順番を選ばせます。",followUps:["その読み手が一番知りたいことは何？","最初の一文で読み手は読み続けたくなる？"],supportQuestions:["伝えたいことを一文で言うと？"]},
+  {id:"q-speak-goal",categories:["speak"],objectiveTypes:["話し合う","評価する"],template:"この話し合いのゴールは「{target}」。今の話の流れはゴールに近づいているだろうか。",intention:"話し合いの途中でゴールを振り返り、話の流れを自分たちで直させます。",followUps:["今出ている意見をゴールに向けてどう整理する？","足りない視点はない？"],supportQuestions:["出た意見を「賛成・反対・条件付き」に分けてみよう。"]},
+  {id:"q-grammar",categories:["gram","vocab"],objectiveTypes:["内容を捉える","比較する","説明する"],template:"「{target}」の二つの文は、何がどう違うのだろう。",intention:"よく似た二つの文を並べ、小さな違いから言葉の働きに気づかせます。",followUps:["違いが生まれる原因はどの語？","同じ仕組みの例をほかに作れる？"],supportQuestions:["主語と述語に印を付けてから比べよう。"]},
+  {id:"q-generic-core",categories:["*"],objectiveTypes:["*"],template:"本文の言葉を使って、「{target}」を説明するとしたら、どこを引用するのが一番伝わるだろう。",intention:"本文のどの言葉を引けば一番伝わるかを考え、本文に立ち返らせます。",followUps:["その引用だけで伝わる？　足りない場合は何を足す？"],supportQuestions:["まず候補を二つ選んでから決めよう。"]}
+];
+
+/* --- 支援マスタ --- */
+const SUPPORTS = [
+  {id:"s-limit",group:"情報量を調整する",title:"着目箇所を限定する",targetNeeds:["本文の内容理解に時間がかかる","読む速度の差が大きい","課題への集中が続きにくい"],text:"本文全体ではなく「◯ページ◯行〜◯行」と範囲を区切って提示する。",caution:"範囲を絞っても、目標そのものは下げない。"},
+  {id:"s-options",group:"情報量を調整する",title:"選択肢を示す",targetNeeds:["書き始めるまでに時間がかかる","叙述を根拠にすることが難しい"],text:"根拠候補や考えの方向を二〜三択で示し、選んだ理由を書かせる。",caution:"選ばせて終わりにせず、理由の言語化を必ず求める。"},
+  {id:"s-two",group:"情報量を調整する",title:"比較対象を二つに絞る",targetNeeds:["複数の叙述を関連づけることが難しい","意見が散らばりすぎる"],text:"比較する叙述・意見を二つに絞り、観点を一つ示す。",caution:"慣れてきたら対象や観点を生徒に開いていく。"},
+  {id:"s-steps",group:"手順を示す",title:"活動を小さな段階に分ける",targetNeeds:["活動の見通しを示す必要がある","一度に複数の指示を出すと混乱しやすい"],text:"活動を三段階以内に分け、板書やカードで順に示す。今どの段階かを常に見えるようにする。",caution:"段階を細かくしすぎると作業になる。三段階を上限の目安に。"},
+  {id:"s-first",group:"手順を示す",title:"最初の一手を示す",targetNeeds:["書き始めるまでに時間がかかる","学習速度の差が大きい"],text:"「まず◯◯に線を引く」など、最初の一動作だけを全員で行ってから個人思考に移る。",caution:"最初の一手以降は手放し、考える部分を奪わない。"},
+  {id:"s-order",group:"手順を示す",title:"記述の順序を示す",targetNeeds:["意見と根拠がつながりにくい","考えはあるが文章化が難しい"],text:"「①考え ②根拠の叙述 ③つなぐ理由」の順で書くよう、番号付きで示す。",caution:"順序はあくまで足場。慣れたら外す。"},
+  {id:"s-frame",group:"表現を支援する",title:"文型を示す",targetNeeds:["考えはあるが文章化が難しい","意見と根拠がつながりにくい"],text:"「私は、〜と考える。なぜなら、本文の『〜』から、〜と分かるからだ。」という文型を示す。",caution:"文型を埋めること自体が目的にならないようにする。"},
+  {id:"s-words",group:"表現を支援する",title:"語句リストを示す",targetNeeds:["考えはあるが文章化が難しい","抽象的な文章の理解に差がある"],text:"使えそうな語句（対比・変化・きっかけ 等）を掲示し、選んで使えるようにする。",caution:"語句の意味を確認してから使わせる。"},
+  {id:"s-visual",group:"表現を支援する",title:"図表で整理してから書く",targetNeeds:["長い記述への負担が大きい","文章構成を捉えることが難しい"],text:"文章化の前に、表や図に整理する段階を挟む。図までで見取れる要素を決めておく。",caution:"図で終わる生徒にも、最後に一文だけは書かせる。"},
+  {id:"s-oral",group:"表現を支援する",title:"口頭説明を先に行う",targetNeeds:["書き始めるまでに時間がかかる","書く量に個人差が大きい"],text:"書く前にペアで三十秒ずつ口頭で説明し、話した内容をそのまま書いてよいと伝える。",caution:"話して満足して終わらないよう、直後に書く時間を置く。"},
+  {id:"s-example",group:"思考を支援する",title:"具体例を示す",targetNeeds:["抽象的な文章の理解に差がある","本文の内容理解に時間がかかる"],text:"抽象的な語や概念に、身近な具体例を一つ添えて示す。",caution:"例に引きずられて本文から離れないよう、本文に戻す発問を用意する。"},
+  {id:"s-wrong",group:"思考を支援する",title:"誤答例を示す",targetNeeds:["感想と解釈が混同されやすい","推敲が表面的になりやすい"],text:"「惜しい説明」の例を教師が作って示し、どこを直すとよくなるかを考えさせる。",caution:"実在の生徒の記述は使わない。"},
+  {id:"s-counter",group:"思考を支援する",title:"反対意見を示す",targetNeeds:["意見が一つに偏る","話し合いが感想交換で終わりやすい"],text:"「こう考える人もいる」と教師が反対の立場を提示し、応答を求める。",caution:"教師の意見が正解に見えないよう、あくまで検討材料として出す。"},
+  {id:"s-viewpoint",group:"思考を支援する",title:"比較の観点を示す",targetNeeds:["複数の叙述を関連づけることが難しい","話し合いの目的を見失いやすい"],text:"「言葉・行動・情景のどれで比べるか」など、比較の観点を先に示す。",caution:"観点を生徒が立てることが目標の場合は使わない。"},
+  {id:"s-quiet",group:"交流に配慮する",title:"声を出さない交流を用意する",targetNeeds:["交流への心理的負担に配慮したい","全体での発言が少ない"],text:"書いて回す・掲示して読み合うなど、発話を伴わない交流形態を選ぶ。",caution:"読んだあと、自分の考えに戻す一文を書かせる。"},
+  {id:"s-thinkfirst",group:"交流に配慮する",title:"個人思考の時間を保障する",targetNeeds:["交流前の個人思考が必要である","個人思考の時間を長めに取りたい","一部の生徒に発言が偏りやすい"],text:"交流前に必ず個人で書く時間を取り、「書いたことを読み上げるだけでよい」と伝える。",caution:"時間を保障する分、交流の時間配分を先に決めておく。"}
+];
+
+/* --- 見取りマスタ --- */
+const ASSESSMENTS = [
+  {id:"m-evidence-link",objectiveTypes:["根拠を挙げる","説明する"],outputs:["short-writing","long-writing","marking"],timing:"個人記述の後",evidence:"根拠となる叙述と自分の考えが、理由で接続されているか。",look:"記述の最後の一文と、引用箇所の対応を見る。",caution:"記述量ではなく、根拠と考えの関係を見る。"},
+  {id:"m-compare",objectiveTypes:["比較する"],outputs:["chart","short-writing"],timing:"比較表・記述の完成時",evidence:"観点をそろえて違いを記述できているか。",look:"表の観点の行と、違いをまとめた一文を見る。",caution:"項目が埋まっているかではなく、観点の一貫性を見る。"},
+  {id:"m-relate",objectiveTypes:["関係づける"],outputs:["chart","short-writing"],timing:"関係図・構成図の完成時",evidence:"要素同士の関係が、矢印と言葉で説明されているか。",look:"矢印に添えられた言葉を見る。",caution:"図の複雑さではなく、関係の説明の的確さを見る。"},
+  {id:"m-interpret",objectiveTypes:["解釈する"],outputs:["short-writing"],timing:"個人記述の後",evidence:"解釈が本文の叙述に支えられているか。",look:"「本文の〜から」という形で叙述が引かれているかを見る。",caution:"解釈の一致ではなく、叙述との整合を見る。"},
+  {id:"m-summary",objectiveTypes:["要約する","内容を捉える"],outputs:["short-writing"],timing:"要約完成時",evidence:"中心となる内容が落ちておらず、細部が適切に削られているか。",look:"最初に選んだ中心文と最終稿を照らして見る。",caution:"字数の達成ではなく、取捨選択の判断を見る。"},
+  {id:"m-evaluate",objectiveTypes:["評価する"],outputs:["short-writing"],timing:"批評・検討の記述後",evidence:"評価の観点が明示され、根拠が本文にあるか。",look:"「〜という点で」という観点の表現を探して見る。",caution:"賛否の結論ではなく、観点と根拠の質を見る。"},
+  {id:"m-express",objectiveTypes:["表現する","推敲する"],outputs:["long-writing","short-writing","chart"],timing:"記述・推敲の途中と完成時",evidence:"目標とした観点（構成・表現など）が成果物に反映されているか。",look:"推敲前後の差分、構成メモと本文の対応を見る。",caution:"全体の出来ではなく、本時の観点に絞って見る。"},
+  {id:"m-discuss",objectiveTypes:["話し合う"],outputs:["short-writing"],timing:"話し合い後の記述時",evidence:"交流を経て、自分の考えがどう変化・強化されたかが書かれているか。",look:"「はじめは〜、今は〜」という前後の記述を見る。",caution:"発言量ではなく、交流後の記述で見取る。"},
+  {id:"m-generic",objectiveTypes:["*"],outputs:["*"],timing:"本時の主活動の成果物完成時",evidence:"本時の目標に対応する内容が、成果物のどこかに残っているか。",look:"目標の述語（説明できる・比較できる等）に対応する箇所を探して見る。",caution:"成果物全体ではなく、目標対応箇所に絞って見る。"}
+];
+
+/* --- 振り返り --- */
+const REFLECTIONS = [
+  "最初の考えから、何がどう変わったか。",
+  "判断の根拠になった叙述はどこか。",
+  "他者の考えから取り入れたものは何か。",
+  "まだ説明できない・分からない点は何か。",
+  "次に確かめたいことは何か。",
+  "今日使った考え方（比較する・根拠づける等）は、次にどこで使えそうか。"
+];
+
+/* --- 授業の核テンプレート --- */
+const CORES = {
+  "内容を捉える": ["本文の{stage}に関わる叙述を集め、中心となる内容を自分の言葉で言い直す。","叙述を順序づけ、{stage}の全体像を一枚に整理する。"],
+  "根拠を挙げる": ["複数の叙述を比較し、考えを最も強く支える根拠を選ぶ。","根拠の候補を複数挙げ、その強さを検討して説明につなぐ。"],
+  "比較する": ["二つの対象を同じ観点で比較し、違いが生まれる理由を本文に求める。","比較の観点を立て、観点ごとの違いを言葉にする。"],
+  "関係づける": ["離れた叙述・段落を結び付け、その関係を矢印と言葉で説明する。","部分と全体を往復し、要素同士のつながりを図にする。"],
+  "説明する": ["自分の考えと、その根拠、二つをつなぐ理由を区別しながら、説明を組み立てる。","本文の言葉を引用しながら、相手に伝わる説明を作る。"],
+  "解釈する": ["複数の解釈を叙述と照らし、本文に最も合う読みを選び取る。","表現の選択に意図を仮定し、その効果を言語化する。"],
+  "評価する": ["観点を決めて本文を検討し、根拠を添えて評価を述べる。","主張と根拠の対応を吟味し、説得力を判定する。"],
+  "要約する": ["中心と細部を区別し、目的に応じて内容を取捨選択する。","段落の中心文をつなぎ、削る判断を通して要旨に迫る。"],
+  "表現する": ["伝える相手と目的を決め、それに合う構成・表現を選ぶ。","条件を変えて表現を試し、効果の違いを確かめながら書く。"],
+  "推敲する": ["観点を一つに絞り、直す前と後を比較しながら文章を良くする。","弱い表現を見つけ、本文の目的に照らして書き直す。"],
+  "話し合う": ["交流の目的を確認し、考えを比較して自分の考えを更新する。","異なる考えを突き合わせ、根拠に基づいて検討する。"]
+};
+
+/* --- 想定される生徒の反応（目標タイプ別・一般形） --- */
+const EXPECTED_RESPONSES = {
+  "根拠を挙げる": ["印象に残った場面を選ぶだけになりやすい","叙述は見つけられても、「そこから何が分かるか」を書けないことがある","根拠をいくつか挙げても、どれが強いかを比べずに並べてしまう"],
+  "比較する": ["観点がそろわないまま、感想を並べるだけになりやすい","違いは見つけられても、「なぜ違うのか」までは進まないことがある"],
+  "関係づける": ["近くにある叙述同士しか結び付けられないことがある","矢印は引けても、関係を表す言葉が書けないことがある"],
+  "説明する": ["結論だけを書いて、理由が抜けやすい","本文の引用が長くなりすぎて、自分の考えが埋もれることがある"],
+  "解釈する": ["自分の経験に引き寄せすぎて、本文から離れてしまうことがある","二つの読み方の間で決めきれず、理由が書けないことがある"],
+  "評価する": ["「分かりやすい」「面白い」など、観点のない感想になりやすい","賛成・反対を言うだけで、その根拠で本当に言えるか確かめる段階に進まないことがある"],
+  "要約する": ["細かいエピソードを残して、中心を削ってしまうことがある","本文の言葉の丸写しになりやすい"],
+  "内容を捉える": ["場面や段落の一部だけで全体を判断してしまうことがある","出来事の順序と原因・結果を取り違えることがある"],
+  "表現する": ["書き出しで手が止まりやすい","構成メモと本文がずれてしまうことがある"],
+  "推敲する": ["誤字探しだけで終わってしまうことがある","直したことで、元の文の良さが消えてしまうことがある"],
+  "話し合う": ["順番に発表して終わりになりやすい","声の大きい意見に合わせてしまうことがある"]
+};
+
+/* --- 困りごと → 打ち手 --- */
+const CONCERN_SOLUTIONS = {
+  "導入が決まらない": [
+    {title:"結末・結論から入る",how:"本時で扱う結論や結末を先に提示し、「なぜそうなるのか」を遡って考える導入にする。"},
+    {title:"一語・一文から入る",how:"本文の一語や一文だけを提示し、気づき・疑問を出させてから本文に入る。"},
+    {title:"前時の記述から入る",how:"前時の振り返りやノートの記述を一つ紹介し、そこに疑問を重ねる形で本時の課題につなぐ。"}
+  ],
+  "中心発問が決まらない": [
+    {title:"目標の述語から作る",how:"目標の述語（説明できる・比較できる）をそのまま問いに変換する。「〜を説明するには、どの叙述が必要か」など。"},
+    {title:"選択・順位の形にする",how:"「AとBのどちらか」「最も〜なのはどれか」と、判断を迫る形にすると根拠が動き出す。"},
+    {title:"欠落・仮定の形にする",how:"「もし〜がなかったら」と本文の一部を消す仮定で、その要素の働きを問う。"}
+  ],
+  "発問が広すぎる": [
+    {title:"対象を絞る",how:"「この作品について」ではなく「この一文の『〜』について」と、問う範囲をページ・行レベルまで絞る。"},
+    {title:"選択肢を付ける",how:"広い問いに二〜三の候補を添えて、まず選ばせてから理由を問う。"},
+    {title:"二段に分ける",how:"広い問いを「事実を確かめる問い→解釈を問う問い」の二段に分割する。"}
+  ],
+  "発問が浅い": [
+    {title:"根拠の比較を足す",how:"答えが出たあとに「その根拠は、他の候補よりどこが強いか」と比較の層を重ねる。"},
+    {title:"反例を返す",how:"「でも、こういう読み方もできない？」と教師が反例を用意して問い返す。"},
+    {title:"『なぜ書いたか』へ上げる",how:"内容の確認から「作者・筆者はなぜそう書いたのか」へ、問いの水準を一段上げる。"}
+  ],
+  "生徒の意見が感想で止まる": [
+    {title:"引用を義務にする",how:"発言・記述に「本文の『〜』から」という引用を一つ含める条件を付ける。"},
+    {title:"感想と解釈を分ける",how:"「感じたこと」と「本文から言えること」を欄で分けたワークシートにする。"},
+    {title:"問い返しで戻す",how:"感想が出たら「本文のどこからそう感じた？」と、必ず叙述へ戻す問い返しをセットにする。"}
+  ],
+  "本文を根拠にできない": [
+    {title:"範囲を区切る",how:"探す範囲を見開き一枚などに区切り、根拠探しのハードルを下げる。"},
+    {title:"線引きから始める",how:"考えを書く前に「関係ありそうな叙述に線を引く」工程を独立させる。"},
+    {title:"文型で接続させる",how:"「本文の『〜』から、〜と分かる」という文型で、引用と考えの接続を型として与える。"}
+  ],
+  "教師との一問一答になる": [
+    {title:"問いを書いて待つ",how:"発問を板書し、全員が書き終わるまで指名しない。書いたものを読み上げる形で発言させる。"},
+    {title:"ペアを挟む",how:"発問→ペアで三十秒→全体、の順にして、教師と個人の直接往復を減らす。"},
+    {title:"意見同士をつなぐ",how:"「今の考えと近い人？違う人？」と、生徒の意見同士を教師がつなぎ直す。"}
+  ],
+  "話し合う必要性が生まれない": [
+    {title:"ずれを可視化する",how:"個人の考えを先に集約・掲示し、意見が割れている事実を見せてから交流に入る。"},
+    {title:"決めるゴールにする",how:"「グループで一つに決める」「順位を付ける」など、合意が必要なゴールを設定する。"},
+    {title:"情報を分ける",how:"担当箇所を分けて読み、持ち寄らないと全体が分からない構造にする。"}
+  ],
+  "一部の生徒だけが話す": [
+    {title:"書いてから話す",how:"全員が書く時間を保障し、「書いたことを読むだけでよい」と伝えてから交流する。"},
+    {title:"役割と順番を決める",how:"話す順番・役割（説明する人・補足する人・記録する人）を固定して始める。"},
+    {title:"紙上交流にする",how:"書いて回す・掲示して読み合う形式にし、発話量の差の影響を消す。"}
+  ],
+  "意見が一つに偏る": [
+    {title:"教師が反対側に立つ",how:"少数派・反対の立場を教師が引き受け、「この読み方は成立しない？」と投げ込む。"},
+    {title:"別解釈の資料を出す",how:"あえて対立する解釈例を提示し、比較の土俵を作る。"},
+    {title:"匿名で集める",how:"考えを匿名で集めて掲示し、同調圧力を外してから分布を見る。"}
+  ],
+  "意見が散らばりすぎる": [
+    {title:"観点で束ねる",how:"出た意見を「言葉について・行動について・構成について」など観点で分類して板書する。"},
+    {title:"二択に絞る",how:"代表的な二つの立場に整理し、どちらが本文に合うかへ焦点化する。"},
+    {title:"目標に照らす",how:"「今日の目標に一番関わる意見はどれか」と、目標を基準に取捨させる。"}
+  ],
+  "書けない生徒が多い": [
+    {title:"口頭を先に",how:"ペアで口頭説明→そのまま文字化、の順にして書くハードルを下げる。"},
+    {title:"文型と語句を渡す",how:"文型・使える語句リストを示し、埋める形から始めて徐々に外す。"},
+    {title:"量を一文に絞る",how:"「最後の一文だけは全員書く」と最低ラインを一文に設定し、そこを見取る。"}
+  ],
+  "活動と目標がつながらない": [
+    {title:"目標から逆算する",how:"目標の述語を実現する成果物を先に決め、その成果物を作る活動だけを残す。"},
+    {title:"活動を一つ削る",how:"活動を一つ減らし、残した活動の時間と質を確保する。削る候補は「盛り上がるが成果物が残らない」もの。"},
+    {title:"接続を言語化する",how:"「この活動をすると目標のどこに近づくか」を一文で書けるか自分に問う。書けない活動は差し替える。"}
+  ],
+  "評価する記述が残らない": [
+    {title:"最後の一文を指定する",how:"授業の最後に「目標に対応する一文」を全員が書く時間を三分固定で置く。"},
+    {title:"口頭活動に記述を接続する",how:"交流・発表の直後に「話したこと・聞いたことを踏まえて」書く工程を必ず挟む。"},
+    {title:"成果物の見る箇所を決める",how:"ワークシートのどの欄を見取りに使うか先に決め、その欄が埋まる活動設計にする。"}
+  ],
+  "授業時間に収まらない": [
+    {title:"活動を一つに絞る",how:"主活動を一つに絞り、導入と振り返りを合わせて十五分以内に収める。"},
+    {title:"交流を一往復にする",how:"交流を「説明→補足一つ」の一往復に限定して時間を固定する。"},
+    {title:"切る場所を決めておく",how:"時間が来たらどこで切るか（続きは次時のどこで扱うか）を設計段階で決めておく。"}
+  ],
+  "振り返りが感想になる": [
+    {title:"問いを指定する",how:"「楽しかったか」ではなく「最初の考えから何が変わったか」「根拠にした叙述はどこか」と問いを固定する。"},
+    {title:"型を示す",how:"「はじめは〜と考えていたが、〜から、今は〜と考える」の型で書かせる。"},
+    {title:"次時への問いにする",how:"「次に確かめたいこと」を書かせ、次時の導入で実際に使う。"}
+  ],
+  "別の授業案が欲しい": [
+    {title:"モードCを使う",how:"このアプリの「別ルートガチャ」で、今の案を残したまま交流量・記述量・切り口の違う案を引ける。"},
+    {title:"思考操作だけ替える",how:"活動はそのままに、中心の思考操作（比較→根拠づけ等）だけを替えると別の授業になる。"},
+    {title:"入口だけ替える",how:"展開は変えず、導入（結末から・一語から・前時の記述から）だけ差し替えるのが最小の別案。"}
+  ],
+  "特に困りごとはない": [
+    {title:"別ルートで点検する",how:"現在の案に満足していても、別ルート案と並べて比較すると、今の案の強みが言語化できる。"},
+    {title:"見取りだけ確認する",how:"「目標の達成をどの成果物のどこで見るか」だけ最終確認しておくと安心度が上がる。"},
+    {title:"短縮案を用意する",how:"時間が押した場合にどこを削るか、予備の短縮ルートだけ引いておく。"}
+  ]
+};
+
+/* ===== ENGINE ===== */
+
+function rngPick(arr, exclude) {
+  const pool = exclude ? arr.filter(x => x !== exclude && x.id !== (exclude && exclude.id)) : arr.slice();
+  if (!pool.length) return arr[0];
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function getMaterial(id) { return MATERIALS.find(m => m.id === id) || null; }
+function materialsByGrade(grade) { return MATERIALS.filter(m => m.grade === grade); }
+
+/* 目標タイプの簡易判定 */
+function detectObjectiveType(text) {
+  if (!text) return null;
+  for (const [type, kws] of OBJECTIVE_KEYWORDS) {
+    if (kws.some(k => text.includes(k))) return type;
+  }
+  return null;
+}
+
+/* 目標の見取りやすさチェック */
+function checkObjectiveWording(text) {
+  if (!text) return null;
+  const hit = VAGUE_PREDICATES.find(p => text.includes(p));
+  const hasObservable = /(できる|挙げられる|説明|比較|要約|書く|選ぶ|整理|まとめられる)/.test(text);
+  if (hit && !hasObservable) {
+    return "この目標は、達成した姿を見取りにくい表現です。「説明できる」「比較できる」「根拠を挙げられる」などへの修正を検討してください。（強制ではありません）";
+  }
+  return null;
+}
+
+/* 目標候補の生成 */
+function getObjectiveCandidates(category, stage) {
+  const c = [];
+  const push = s => c.push(s);
+  const table = {
+    lit: {
+      "初読・感想": ["心に残った叙述を一つ選び、選んだ理由を書くことができる。","本文を読んで生まれた疑問を、問いの形で書くことができる。"],
+      "内容把握": ["出来事の順序と因果関係を整理して説明できる。","場面の設定（時・場所・人物）を叙述を基に整理できる。"],
+      "人物像": ["叙述を根拠に、人物の人柄や考え方を説明できる。","複数の叙述を比較し、人物像を最も強く支える根拠を選べる。"],
+      "人物関係": ["叙述を基に、人物同士の関係とその変化を図に整理して説明できる。"],
+      "心情・認識の変化": ["叙述を根拠に、人物の心情・認識の変化ときっかけを説明できる。","変化の前後の叙述を比較し、変化の内容を自分の言葉で言い換えられる。"],
+      "場面・構成": ["場面の展開と作品の構成の関係を説明できる。"],
+      "表現の効果": ["表現の工夫を見つけ、その効果を叙述と結び付けて説明できる。"],
+      "解釈の比較": ["複数の解釈を叙述と照らして比較し、根拠を挙げて自分の考えを述べられる。"],
+      "主題・作品の価値": ["叙述を根拠に、作品の主題について自分の考えを説明できる。"],
+      "学習のまとめ": ["学習を通した自分の読みの変化を、根拠となった叙述とともに説明できる。"]
+    },
+    exp: {
+      "初読・問いづくり": ["本文を読んで、内容に関わる問いを立てることができる。"],
+      "内容把握": ["筆者が取り上げた事例の内容を整理して説明できる。"],
+      "文章構成": ["序論・本論・結論の構成を捉え、各部分の役割を説明できる。"],
+      "段落関係": ["段落同士の関係を捉え、その働きを説明できる。"],
+      "事実と意見": ["事実と筆者の意見を区別し、見分けた手がかりを説明できる。"],
+      "具体と抽象": ["具体例と抽象的な主張の対応を整理して説明できる。"],
+      "根拠と主張": ["筆者の主張とそれを支える根拠の対応を整理して説明できる。","筆者の根拠の示し方について、説得力を評価できる。"],
+      "図表と本文": ["図表と本文の対応を捉え、図表の役割を説明できる。"],
+      "要旨": ["文章の中心的な内容を捉え、指定字数で要約できる。"],
+      "筆者の論の評価": ["筆者の論の進め方について、根拠を挙げて自分の考えを述べられる。"],
+      "学習のまとめ": ["筆者の説明の工夫をまとめ、自分の表現に生かす観点を挙げられる。"]
+    },
+    cls: {
+      "音読": ["歴史的仮名遣いに注意して、内容に合わせた音読ができる。"],
+      "歴史的仮名遣い・語句": ["歴史的仮名遣いや古語の意味を、現代語と対応させて説明できる。"],
+      "内容理解": ["古文と現代語訳を対応させて、内容を捉えることができる。"],
+      "現代語訳": ["語句の意味を手がかりに、場面の内容を現代の言葉で説明できる。"],
+      "表現": ["古典の表現の特徴（対句・リズムなど）を見つけ、効果を説明できる。"],
+      "人物のものの見方": ["登場人物のものの見方を捉え、叙述を根拠に説明できる。"],
+      "現代との比較": ["古典の人物のものの見方を現代と比較し、共通点や相違点を述べられる。"],
+      "作品の価値": ["作品が読み継がれてきた理由について、自分の考えを述べられる。"],
+      "学習のまとめ": ["古典の学習で捉えたものの見方を、自分の言葉でまとめられる。"]
+    },
+    write: {
+      "題材設定": ["伝える相手と目的に応じて、題材を選び、選んだ理由を説明できる。"],
+      "情報収集": ["目的に応じて材料を集め、使えるものを選別できる。"],
+      "構成": ["伝えたいことが伝わるように、材料の順序を決め、構成メモを作れる。"],
+      "記述": ["構成メモに基づき、根拠を示しながら自分の考えを書ける。"],
+      "推敲": ["観点を決めて自分の文章を見直し、より伝わる表現に書き直せる。"],
+      "共有・評価": ["観点に沿って互いの文章の良さを見つけ、伝えることができる。"]
+    },
+    speak: {
+      "話題設定": ["目的に応じて話題を決め、話し合いのゴールを設定できる。"],
+      "情報整理": ["集めた情報を、話す目的に応じて取捨選択し整理できる。"],
+      "構成": ["聞き手に伝わるよう、話の構成を考えることができる。"],
+      "発表": ["資料や構成を生かして、根拠を示しながら話すことができる。"],
+      "質疑": ["発表の内容を踏まえて質問し、応答することができる。"],
+      "話し合い": ["互いの考えを比較しながら話し合い、考えをまとめたり広げたりできる。"],
+      "振り返り": ["話し合いを通した自分の考えの変化を説明できる。"]
+    }
+  };
+  const catTable = table[category];
+  if (catTable && catTable[stage]) catTable[stage].forEach(push);
+  /* 詩歌は文学に準じる汎用候補 */
+  if (!c.length && (category === "poem" || category === "tanka")) {
+    push("表現の工夫を見つけ、その効果を作品の内容と結び付けて説明できる。");
+    push("複数の解釈を比較し、根拠を挙げて自分の読みを述べられる。");
+  }
+  if (!c.length) {
+    push(`本時の学習内容（${stage}）について、根拠を挙げて説明できる。`);
+    push(`${stage}に関わる要素を整理し、自分の言葉でまとめられる。`);
+  }
+  return c;
+}
+
+/* 避けたい活動 → 除外条件 */
+function violatesAvoided(activity, avoided) {
+  if (avoided.includes("グループ活動") && activity.groupType.includes("group") && activity.groupType.length === 1) return true;
+  if (avoided.includes("ペア活動") && activity.groupType.includes("pair") && activity.groupType.length === 1) return true;
+  if (avoided.includes("端末利用") && activity.requires.includes("生徒用端末")) return true;
+  if (avoided.includes("長文記述") && activity.outputType === "long-writing") return true;
+  if (avoided.includes("移動を伴う活動") && activity.tags.includes("move")) return true;
+  if (avoided.includes("即興発表") && activity.tags.includes("impromptu")) return true;
+  if (avoided.includes("競争形式") && activity.tags.includes("competition")) return true;
+  if (avoided.includes("多数決") && activity.tags.includes("vote")) return true;
+  return false;
+}
+
+/* 使える groupType に絞り込む */
+function usableGroupTypes(activity, avoided) {
+  return activity.groupType.filter(g => {
+    if (g === "group" && avoided.includes("グループ活動")) return false;
+    if (g === "pair" && avoided.includes("ペア活動")) return false;
+    return true;
+  });
+}
+
+/* 活動フィルタ */
+function filterActivities(ctx) {
+  const cat = ctx.material ? ctx.material.category : "mixed";
+  return ACTIVITIES.filter(a => {
+    if (!(a.categories.includes("*") || a.categories.includes(cat))) return false;
+    if (ctx.objectiveType && !a.objectiveTypes.includes(ctx.objectiveType)) {
+      const ops = OPS_BY_OBJECTIVE[ctx.objectiveType] || [];
+      if (!a.ops.some(o => ops.includes(o))) return false;
+    }
+    if (violatesAvoided(a, ctx.avoidedElements)) return false;
+    if (usableGroupTypes(a, ctx.avoidedElements).length === 0) return false;
+    for (const req of a.requires) {
+      if (!ctx.environment.includes(req)) return false;
+    }
+    return true;
+  });
+}
+
+/* 発問の選定 */
+function pickQuestionEntry(ctx, excludeId) {
+  const cat = ctx.material ? ctx.material.category : "mixed";
+  let pool = QUESTIONS.filter(q =>
+    (q.categories.includes("*") || q.categories.includes(cat)) &&
+    (q.objectiveTypes.includes("*") || q.objectiveTypes.includes(ctx.objectiveType))
+  );
+  if (excludeId) pool = pool.filter(q => q.id !== excludeId);
+  if (!pool.length) pool = QUESTIONS.filter(q => q.categories.includes("*"));
+  return rngPick(pool);
+}
+function questionTarget(ctx) {
+  const stage = ctx.lessonStage || "";
+  const map = {
+    "人物像": "この人物の人柄・考え方", "心情・認識の変化": "人物の変化",
+    "人物関係": "人物同士の関係", "表現の効果": "この表現",
+    "根拠と主張": "筆者の主張", "要旨": "初めて読む人", "解釈の比較": "この場面",
+    "現代との比較": "この人物", "話し合い": "本時のゴール"
+  };
+  return map[stage] || (ctx.objective ? "本時の目標に関わる内容" : "本時の中心となる内容");
+}
+function buildQuestion(ctx, excludeId) {
+  const entry = pickQuestionEntry(ctx, excludeId);
+  const text = entry.template
+    .replace("{target}", questionTarget(ctx))
+    .replace("{material}", ctx.material ? ctx.material.title : "本教材");
+  return { id: entry.id, text, intention: entry.intention, followUps: entry.followUps, supportQuestions: entry.supportQuestions };
+}
+
+/* 支援の選定 */
+function pickSupports(ctx, mainActivity, count) {
+  const scored = SUPPORTS.map(s => {
+    let score = 0;
+    for (const need of s.targetNeeds) if (ctx.classTendencies.includes(need)) score += 2;
+    if (ctx.classTendencies.length === 0) score += Math.random();
+    return { s, score: score + Math.random() * 0.5 };
+  }).sort((a, b) => b.score - a.score);
+  return scored.slice(0, count || 2).map(x => x.s);
+}
+
+/* 見取りの選定 */
+function pickAssessment(ctx, mainActivity, excludeId) {
+  const out = mainActivity ? mainActivity.outputType : "short-writing";
+  let pool = ASSESSMENTS.filter(m =>
+    (m.objectiveTypes.includes("*") || m.objectiveTypes.includes(ctx.objectiveType)) &&
+    (m.outputs.includes("*") || m.outputs.includes(out))
+  );
+  if (excludeId) pool = pool.filter(m => m.id !== excludeId);
+  if (!pool.length) pool = ASSESSMENTS.filter(m => m.objectiveTypes.includes("*"));
+  return rngPick(pool);
+}
+
+/* ---- 方向性（3案差別化の軸） ---- */
+const DIRECTIONS = [
+  { id: "write",    label: "個人思考・記述重視", prefer: { group: ["individual"], output: ["short-writing", "long-writing"] } },
+  { id: "dialog",   label: "比較・対話重視",     prefer: { group: ["pair", "group", "whole"], ops: ["比較する", "評価する"] } },
+  { id: "analysis", label: "本文分析・根拠重視", prefer: { tags: ["text-evidence"], ops: ["根拠づける", "関係づける"] } },
+  { id: "short",    label: "時間短縮・焦点化",   prefer: { group: ["individual"], short: true } },
+  { id: "support",  label: "支援多め・段階的",   prefer: { group: ["individual", "pair"], supportRich: true } },
+  { id: "quiet",    label: "静かな交流・記述接続", prefer: { tags: ["quiet"], group: ["individual", "group"] } }
+];
+
+function chooseDirections(ctx, routePrefs) {
+  if (routePrefs && routePrefs.length) {
+    const routeMap = {
+      "交流を減らす案": DIRECTIONS[0], "記述を増やす案": DIRECTIONS[0],
+      "比較を中心にする案": DIRECTIONS[1], "根拠を中心にする案": DIRECTIONS[2],
+      "時間を短縮する案": DIRECTIONS[3]
+    };
+    const routeLabels = { "交流を減らす案": "交流を減らす", "記述を増やす案": "記述を増やす", "比較を中心にする案": "比較中心", "根拠を中心にする案": "根拠中心", "時間を短縮する案": "時間短縮" };
+    return routePrefs.map(r => Object.assign({}, routeMap[r] || DIRECTIONS[2], { label: routeLabels[r] || r }));
+  }
+  const noPair = ctx.avoidedElements.includes("ペア活動");
+  const noGroup = ctx.avoidedElements.includes("グループ活動");
+  const dirs = [DIRECTIONS[0]];
+  dirs.push(noPair && noGroup ? DIRECTIONS[5] : DIRECTIONS[1]);
+  if (noPair && noGroup) dirs[1] = DIRECTIONS[3];
+  dirs.push(DIRECTIONS[2]);
+  return dirs;
+}
+
+function scoreActivityForDirection(a, dir, ctx) {
+  let s = Math.random();
+  const p = dir.prefer || {};
+  if (p.group && a.groupType.some(g => p.group.includes(g))) s += 2;
+  if (p.output && p.output.includes(a.outputType)) s += 2;
+  if (p.ops && a.ops.some(o => p.ops.includes(o))) s += 1.5;
+  if (p.tags && a.tags.some(t => p.tags.includes(t))) s += 2.5;
+  if (p.short && a.duration <= 10) s += 2;
+  if (ctx.objectiveType && a.objectiveTypes.includes(ctx.objectiveType)) s += 1.5;
+  return s;
+}
+
+/* 固定要素 → 必須活動群 */
+function fixedActivitySteps(ctx) {
+  const pre = [], post = [];
+  if (ctx.fixedElements.includes("音読を入れる")) pre.push("音読（観点を一つ添えて）…約5分");
+  if (ctx.fixedElements.includes("現在の活動を残す") && ctx.currentActivity) pre.push(`【固定】現在考えている活動：${ctx.currentActivity}`);
+  return { pre, post };
+}
+
+/* 1案の生成 */
+function buildPlan(ctx, dir, locks, prev) {
+  locks = locks || {};
+  const plan = prev ? JSON.parse(JSON.stringify(prev)) : {};
+  plan.direction = dir.label;
+  plan.dirId = dir.id;
+
+  const ops = OPS_BY_OBJECTIVE[ctx.objectiveType] || ["根拠づける"];
+  const preferOps = (dir.prefer && dir.prefer.ops) ? ops.filter(o => dir.prefer.ops.includes(o)) : [];
+  const mainOp = locks.core && prev ? prev.mainOp : (preferOps[0] || rngPick(ops));
+  plan.mainOp = mainOp;
+
+  if (!(locks.core && prev)) {
+    const coreTemplates = CORES[ctx.objectiveType] || CORES["説明する"];
+    plan.core = rngPick(coreTemplates).replace("{stage}", ctx.lessonStage || "本時の内容");
+  }
+
+  if (!(locks.question && prev)) {
+    if (ctx.fixedElements.includes("現在の中心発問を残す") && ctx.currentQuestion) {
+      plan.question = { id: "user", text: ctx.currentQuestion, intention: "（先生が設定した問いです）", followUps: ["その根拠は本文のどこにある？"], supportQuestions: [] };
+    } else {
+      plan.question = buildQuestion(ctx, prev && prev.question ? prev.question.id : null);
+    }
+  }
+
+  if (!(locks.activities && prev)) {
+    const pool = filterActivities(ctx);
+    const budget = Math.max(15, (ctx.duration || 50) - 18); /* 導入・振り返り分を確保 */
+    const scored = pool.map(a => ({ a, s: scoreActivityForDirection(a, dir, ctx) })).sort((x, y) => y.s - x.s);
+    const picked = [];
+    let used = 0;
+    const wantPair = ctx.fixedElements.includes("ペア交流を入れる");
+    const wantGroup = ctx.fixedElements.includes("グループ交流を入れる");
+    const wantWhole = ctx.fixedElements.includes("全体交流を入れる");
+    const wantWrite = ctx.fixedElements.includes("書く活動を入れる");
+    for (const { a } of scored) {
+      if (picked.length >= 3) break;
+      if (used + a.duration > budget) continue;
+      if (picked.some(p => p.id === a.id)) continue;
+      picked.push(a); used += a.duration;
+    }
+    const ensure = (pred, label) => {
+      if (!picked.some(pred)) {
+        const cand = pool.filter(pred).sort((x, y) => x.duration - y.duration)[0];
+        if (cand && !picked.some(p => p.id === cand.id)) { picked.push(cand); }
+      }
+    };
+    if (wantPair) ensure(a => a.groupType.includes("pair"));
+    if (wantGroup) ensure(a => a.groupType.includes("group"));
+    if (wantWhole) ensure(a => a.groupType.includes("whole"));
+    if (wantWrite) ensure(a => a.outputType === "short-writing" || a.outputType === "long-writing");
+    if (ctx.fixedElements.includes("個人で考える時間を入れる")) ensure(a => a.groupType.includes("individual"));
+    if (!picked.length && pool.length) picked.push(pool[0]);
+    plan.activities = picked.map(a => ({
+      id: a.id, title: a.title, duration: a.duration, steps: a.steps,
+      groupType: usableGroupTypes(a, ctx.avoidedElements), outputType: a.outputType,
+      producesEvidence: a.producesEvidence, caution: a.caution
+    }));
+  }
+
+  const mainAct = plan.activities && plan.activities.length ?
+    plan.activities.reduce((m, a) => (a.producesEvidence && (!m || a.duration > m.duration)) ? a : m, null) || plan.activities[0]
+    : null;
+
+  if (!(locks.supports && prev)) {
+    const supRich = dir.prefer && dir.prefer.supportRich;
+    plan.supports = pickSupports(ctx, mainAct, supRich ? 3 : 2).map(s => ({ id: s.id, group: s.group, title: s.title, text: s.text, caution: s.caution }));
+  }
+
+  if (!(locks.assessment && prev)) {
+    const m = pickAssessment(ctx, mainAct, prev && prev.assessment ? prev.assessment.id : null);
+    plan.assessment = { id: m.id, timing: m.timing, evidence: m.evidence, look: m.look, caution: m.caution };
+  }
+
+  if (!(locks.reflection && prev)) {
+    plan.reflection = shuffle(REFLECTIONS).slice(0, 2);
+  }
+
+  plan.expected = EXPECTED_RESPONSES[ctx.objectiveType] || EXPECTED_RESPONSES["説明する"];
+  plan.rationale = buildRationale(ctx, plan, mainAct);
+  plan.shortcut = buildShortcut(plan);
+  plan.altIfFlat = "候補（選択肢）を二つ示して、選ぶところから再開します。選んだ理由を問えば、思考は同じ地点に戻れます。";
+  plan.fixedNotes = fixedActivitySteps(ctx);
+  plan.warnings = checkPlan(ctx, plan, mainAct);
+  return plan;
+}
+
+/* --- 「この案のよさ」テンプレート（目標タイプ別・2文） --- */
+const RATIONALE_TEMPLATES = {
+  "内容を捉える": ["本文の大事な部分を整理し、内容を自分の言葉で捉える案です。", "何となく読んで終わらず、どの言葉を手がかりにしたかを残せます。"],
+  "根拠を挙げる": ["本文から根拠を選び、そこから何が言えるかまで説明する案です。", "叙述を抜き出すだけでなく、自分の考えとのつながりを確かめられます。"],
+  "比較する": ["二つ以上の場面・表現・考えを比べ、違いや共通点から考えをまとめる案です。", "比べる観点をはっきりさせることで、感想だけで終わりにくくなります。"],
+  "関係づける": ["複数の叙述や段落をつなげて、互いの関係を捉える案です。", "一部分だけで判断せず、文章全体を見て考えられます。"],
+  "説明する": ["自分の考えを、本文の言葉や具体例と結び付けて説明する案です。", "「そう思った」で終わらず、理由まで相手に伝えられます。"],
+  "解釈する": ["一つの読みで決めつけず、叙述を基に自分なりの読みをつくる案です。", "別の読み方とも比べながら、より本文に合う説明を探せます。"],
+  "評価する": ["筆者の主張や表現が本当に妥当か、根拠を確かめながら考える案です。", "賛成・反対だけでなく、そう判断した理由を言葉にできます。"],
+  "要約する": ["何を残し、何を削るかを考えながら、文章の中心を短くまとめる案です。", "字数を減らすだけでなく、大事な内容を選ぶ判断が残ります。"],
+  "表現する": ["伝えたい内容と、相手・目的に合う表現を選ぶ案です。", "書くこと自体ではなく、なぜその表現にしたのかも考えられます。"],
+  "推敲する": ["観点を一つに絞り、直す前と後を比べながら文章を整える案です。", "何となく書き直すのではなく、直した理由を確かめられます。"],
+  "話し合う": ["意見を出し合うだけでなく、違いを比べたり、自分の考えを直したりするところまで行う案です。", "話した後に何が変わったかを、記述として残せます。"]
+};
+
+function buildRationale(ctx, plan, mainAct) {
+  const type = ctx.objectiveType || "説明する";
+  const tpl = RATIONALE_TEMPLATES[type] || RATIONALE_TEMPLATES["説明する"];
+  let s1 = tpl[0], s2 = tpl[1];
+  /* 主活動に応じた軽い差し替え（不自然にならない範囲） */
+  if (mainAct) {
+    if (/順位|選ぶ|一つに|比べて選/.test(mainAct.title)) {
+      s2 = "候補を比べて選ぶ形なので、感想で終わらず、選んだ理由が言葉として残ります。";
+    } else if (mainAct.outputType === "marking") {
+      s2 = "本文に線を引く工程が入るので、どの叙述を手がかりにしたかが後から見えます。";
+    } else if (mainAct.outputType === "chart") {
+      s2 = "表や図に整理する形なので、考えの途中経過が残り、見取りにも使えます。";
+    } else if (mainAct.groupType && !mainAct.groupType.includes("individual")) {
+      s2 = s2 + "交流の前後で考えがどう変わったかも見取れます。";
+    }
+  }
+  return {
+    fit: s1 + s2,
+    look: plan.assessment ? assessmentNatural(plan.assessment)[0] : "",
+    stumble: (plan.expected || []).slice(0, 2).join("／"),
+    note: mainAct ? mainAct.caution : ""
+  };
+}
+
+/* 見取りの自然文フォーマッタ（内部構造は維持し、表示時に整形） */
+function assessmentNatural(a) {
+  if (!a) return ["", ""];
+  const line1 = `${a.timing}に、${a.evidence.replace(/か。$/, "かを見ます。").replace(/。$/, "を見ます。")}`;
+  const line2 = (a.look + " " + a.caution).replace(/見る。/g, "見ます。").trim();
+  return [line1, line2];
+}
+
+function buildShortcut(plan) {
+  if (!plan.activities || plan.activities.length <= 1) {
+    return "振り返りを「根拠にした叙述を一つ書く」の一文に絞ります。";
+  }
+  const drop = plan.activities[plan.activities.length - 1];
+  return `「${drop.title}」を割愛し、主活動の記述時間を確保します。振り返りは一文（根拠にした叙述）に絞ります。`;
+}
+
+/* 整合性チェック（警告。出力は止めない） */
+function checkPlan(ctx, plan, mainAct) {
+  const warns = [];
+  const totalTime = (plan.activities || []).reduce((s, a) => s + a.duration, 0) + 15;
+  if (totalTime > (ctx.duration || 50) + 5) {
+    warns.push(`活動が少し多めです。${ctx.duration || 50}分なら、中心になる活動を一つ減らした方が収まりそうです。`);
+  }
+  const hasExchange = (plan.activities || []).some(a => a.groupType.some(g => g !== "individual"));
+  const hasWriteAfter = (plan.activities || []).some(a => a.outputType === "short-writing" || a.outputType === "long-writing" || a.outputType === "chart" || a.outputType === "marking");
+  if (hasExchange && !hasWriteAfter) {
+    warns.push("話し合いは入っていますが、話した後に何を変えるのかがまだ曖昧です。比べる・選び直す・書き直すなど、交流後の動きを一つ決めておくと授業が締まります。");
+  }
+  if (!(plan.activities || []).some(a => a.producesEvidence)) {
+    warns.push("このままだと、生徒が何を考えたかが残りにくそうです。最後に一文だけでも書く時間を取ると、見取りやすくなります。");
+  }
+  if (ctx.objectiveType === "根拠を挙げる" && !(plan.activities || []).some(a => ["marking", "short-writing", "long-writing"].includes(a.outputType))) {
+    warns.push("本文に戻る場面がまだ弱いかもしれません。線を引く・書き抜くなど、叙述に触れる工程を一つ入れると目標に近づきます。");
+  }
+  if (ctx.classTendencies.length > 5) {
+    warns.push("選んだ傾向が多く、案がやや複雑になっています。特に気になる項目に絞ると、焦点がはっきりします。");
+  }
+  return warns;
+}
+
+/* 3案生成（差の確保つき） */
+function generatePlans(ctx, routePrefs, prevPlans, locksList) {
+  const dirs = chooseDirections(ctx, routePrefs);
+  const plans = [];
+  for (let i = 0; i < dirs.length; i++) {
+    const prev = prevPlans ? prevPlans[i] : null;
+    const locks = locksList ? locksList[i] : null;
+    let p = buildPlan(ctx, dirs[i], locks, prev);
+    /* 差の確保：主活動が既出と同一なら1回だけ引き直す */
+    for (let retry = 0; retry < 3; retry++) {
+      const mainIds = plans.map(x => x.activities && x.activities[0] ? x.activities[0].id : "");
+      const myMain = p.activities && p.activities[0] ? p.activities[0].id : "x";
+      const sameOpAndAct = plans.some(x => x.mainOp === p.mainOp) && mainIds.includes(myMain);
+      if (!sameOpAndAct || (locks && (locks.activities || locks.core))) break;
+      p = buildPlan(ctx, dirs[i], locks, prev);
+    }
+    plans.push(p);
+  }
+  return plans;
+}
+
+/* モードB：部分ガチャ */
+function generatePartial(ctx, fields) {
+  const dir = DIRECTIONS[2];
+  const full = buildPlan(ctx, dir, {}, null);
+  const out = {};
+  fields.forEach(f => { out[f] = full[f === "intro" ? "core" : f]; });
+  if (fields.includes("intro")) {
+    out.intro = rngPick([
+      "結末・結論を先に示し、「なぜそうなるのか」と遡らせる導入。",
+      "本文の一語・一文だけを提示し、気づきと疑問を出させる導入。",
+      "前時の振り返りの記述を一つ紹介し、疑問を重ねて本時の課題へつなぐ導入。",
+      "対立する二つの読み方を先に提示し、どちらが本文に合うかを予想させる導入。"
+    ]);
+  }
+  return { fields, data: out, plan: full };
+}
+
+/* モードD：困りごと解決 */
+function concernSolutions(concern) {
+  return CONCERN_SOLUTIONS[concern] || [];
+}
+
+/* 出力テキスト生成 */
+function planToText(ctx, plan) {
+  const L = [];
+  const add = (label, body) => { if (body) L.push(`【${label}】\n${body}`); };
+  add("学年", ctx.grade ? `中学${ctx.grade}年` : "");
+  add("教材", ctx.material ? `${ctx.material.title}（${CATEGORIES[ctx.material.category].label}）` : ctx.customMaterialTitle || "");
+  add("本時の段階", ctx.lessonStage);
+  add("授業時間", (ctx.duration || 50) + "分");
+  add("本時の目標", ctx.objective);
+  add("方向性", plan.direction);
+  add("授業の中心", plan.core);
+  if (plan.question) add("中心発問", plan.question.text + (plan.question.intention ? `\n（この問いで考えさせたいこと）${plan.question.intention}` : ""));
+  if (plan.activities) {
+    const acts = plan.activities.map((a, i) => `${i + 1}．${a.title}（約${a.duration}分）\n　${a.steps.join(" → ")}`).join("\n");
+    add("学習活動", (plan.fixedNotes && plan.fixedNotes.pre.length ? plan.fixedNotes.pre.join("\n") + "\n" : "") + acts);
+  }
+  if (plan.supports) add("支援", plan.supports.map(s => `・${s.title}：${s.text}`).join("\n"));
+  if (plan.assessment) add("見取り", assessmentNatural(plan.assessment).join("\n"));
+  if (plan.reflection) add("振り返り", plan.reflection.map(r => "・" + r).join("\n"));
+  if (plan.question && plan.question.followUps) add("問い返し・補助発問", plan.question.followUps.concat(plan.question.supportQuestions || []).map(f => "・" + f).join("\n"));
+  if (plan.expected) add("想定される反応", plan.expected.map(e => "・" + e).join("\n"));
+  add("時間不足時・代替案", "（時間が足りないとき）" + plan.shortcut + "\n（反応が出ないとき）" + plan.altIfFlat);
+  add("留意点", plan.rationale ? plan.rationale.note : "");
+  L.push("―――\n※このメモは授業づくりの叩き台です。教材・目標・学級の状況に合わせて修正して使用してください。");
+  return L.join("\n\n");
+}
+/* ===== ENGINE-END ===== */
+
+/* ===== UI ===== */
+
+/* --- 表示層マップ（内部値は変更せず、表示時に翻訳する） --- */
+const RESULT_LABELS = {
+  core: "この案でやること",
+  question: "授業の真ん中に置く問い",
+  activities: "生徒の動き",
+  supports: "止まったときの助け",
+  assessment: "見取り",
+  reflection: "最後に考えさせたいこと"
+};
+const PRINT_LABELS = {
+  core: "授業の中心",
+  question: "中心発問",
+  activities: "学習活動",
+  supports: "支援",
+  assessment: "見取り",
+  reflection: "振り返り"
+};
+const COPY_LABELS = {
+  core: "授業の中心",
+  question: "中心発問",
+  activities: "学習活動",
+  supports: "支援",
+  assessment: "見取り",
+  reflection: "振り返り"
+};
+const THINKING_OP_DISPLAY = {
+  "比較する": "比べて考える",
+  "分類する": "仲間分けして考える",
+  "関係づける": "つなげて考える",
+  "順序づける": "順番を整理する",
+  "根拠づける": "本文を根拠に考える",
+  "具体化する": "具体例に置き換える",
+  "抽象化する": "共通することをまとめる",
+  "言い換える": "自分の言葉に直す",
+  "要約する": "大事なことを絞る",
+  "推論する": "書かれていないことを根拠から考える",
+  "評価する": "本当にそう言えるか確かめる",
+  "解釈する": "自分なりの読みをつくる",
+  "反例を考える": "当てはまらない例を探す",
+  "条件を変えて考える": "もしも、で考える",
+  "複数の解釈を比べる": "いくつかの読み方を比べる"
+};
+function createInitialState() {
+  return {
+    screen: "top",
+    grade: null, materialId: null, customMaterialTitle: "", customCategory: "mixed",
+    lessonStage: null, duration: 50, environment: ["教科書"],
+    objective: "", objectiveType: null,
+    currentQuestion: "", currentActivity: "",
+    fixedElements: [], avoidedElements: [],
+    classTendencies: [], _noTendency: false, concerns: [],
+    mode: "three", routePrefs: [], partialFields: [],
+    plans: [], locks: [{}, {}, {}],
+    partialResult: null,
+    selectedIndex: null, edited: null
+  };
+}
+const state = createInitialState();
+
+/* 全体リセット（保存済み下書きは消さない） */
+function resetAllState() {
+  const init = createInitialState();
+  Object.keys(init).forEach(k => { state[k] = init[k]; });
+}
+
+/* STEP別リセット */
+const STEP_RESETS = {
+  step1() { const i = createInitialState(); ["grade","materialId","customMaterialTitle","customCategory","duration","environment"].forEach(k => state[k] = i[k]); state.lessonStage = null; },
+  step2() { const i = createInitialState(); ["lessonStage","objective","objectiveType","fixedElements","avoidedElements","currentQuestion","currentActivity"].forEach(k => state[k] = i[k]); },
+  step3() { state.classTendencies = []; state._noTendency = false; },
+  step4() { state.concerns = []; },
+  step5() { const i = createInitialState(); ["mode","partialFields","routePrefs"].forEach(k => state[k] = i[k]); }
+};
+
+/* 「選択をすべて外す」「この画面の選択をリセット」の小ボタン */
+function clearMultiBtn(key, count) {
+  return `<button type="button" class="clear-link" data-clear-multi="${esc(key)}" ${count ? "" : "disabled"}>選択をすべて外す</button>`;
+}
+function stepResetBtn(step) {
+  return `<button type="button" class="clear-link" data-step-reset="${esc(step)}">この画面の選択をリセット</button>`;
+}
+
+function ctxFromState() {
+  return {
+    grade: state.grade,
+    material: state.materialId === "other" ? { id: "other", title: state.customMaterialTitle || "（教材名未入力）", category: state.customCategory || "mixed", grade: state.grade, stages: STAGES_BY_CATEGORY[state.customCategory || "mixed"] } : getMaterial(state.materialId),
+    customMaterialTitle: state.customMaterialTitle,
+    lessonStage: state.lessonStage, duration: state.duration,
+    environment: state.environment, objective: state.objective,
+    objectiveType: state.objectiveType,
+    currentQuestion: state.currentQuestion, currentActivity: state.currentActivity,
+    fixedElements: state.fixedElements, avoidedElements: state.avoidedElements,
+    classTendencies: state.classTendencies, concerns: state.concerns
+  };
+}
+
+const $app = document.getElementById("app");
+const $bar = document.getElementById("bottom-bar");
+const $barInner = document.getElementById("bottom-bar-inner");
+const $modal = document.getElementById("modal-slot");
+
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._tm); t._tm = setTimeout(() => t.classList.remove("show"), 2200);
+}
+async function copyText(text, label) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const ta = document.createElement("textarea");
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      document.execCommand("copy"); ta.remove();
+    }
+    toast((label || "内容") + "をコピーしました");
+  } catch (e) { toast("コピーできませんでした。長押しで選択してください"); }
+}
+
+/* --- 選択チップ描画 --- */
+function chips(items, selected, multi, onLabel) {
+  return `<div class="choice-group">` + items.map(it =>
+    `<button type="button" class="choice" data-chip="${esc(it)}" data-multi="${multi ? 1 : 0}" data-key="${esc(onLabel)}" aria-pressed="${selected.includes(it)}">${esc(it)}</button>`
+  ).join("") + `</div>`;
+}
+
+function progressBar(now) {
+  const steps = ["基本条件", "本時の条件", "学級の傾向", "困りごと", "ガチャ"];
+  return `<div class="step-label">STEP ${now} ／ 5　${esc(steps[now - 1])}</div>
+  <div class="progress" aria-hidden="true">` +
+    steps.map((_, i) => `<div class="step-dot ${i + 1 < now ? "done" : i + 1 === now ? "now" : ""}"></div>`).join("") + `</div>`;
+}
+
+function bottomBar(html) {
+  if (!html) { $bar.hidden = true; $barInner.innerHTML = ""; return; }
+  $bar.hidden = false; $barInner.innerHTML = html;
+}
+
+/* ============ 画面 ============ */
+const SCREENS = {};
+
+SCREENS.top = () => {
+  bottomBar("");
+  $app.innerHTML = `
+  <div class="top-hero">
+    <div class="stamp">授業への別ルートを引く</div>
+    <h1>中学校国語科<br>授業設計ガチャ</h1>
+    <p class="lede">完成した指導案を作るツールではありません。<br>教材と目標をもとに、授業のネタ・発問・活動・別案を提示します。</p>
+  </div>
+  <div class="notice">学校名、生徒名、学級名、個別の記録は入力しないでください。入力内容が外部に送信されることはありません。</div>
+  <div class="btn-row" style="flex-direction:column">
+    <button class="btn gacha block" data-nav="step1" style="min-height:56px">授業を考える</button>
+    <button class="btn block" id="btn-load-draft">保存した下書きを開く</button>
+    <button class="btn ghost block" data-nav="about">このツールについて</button>
+    <button class="btn ghost block" id="btn-reset-all">最初からやり直す</button>
+  </div>
+  <p class="small" style="text-align:center">対応：中学1〜3年／${esc(textbookConfig.publisher)}／1単位時間（原則50分）<br>教材データは参考版です（教科書の版：${esc(textbookConfig.edition)}）<br>本ツールは非公式であり、光村図書出版株式会社とは関係ありません。</p>`;
+};
+
+SCREENS.about = () => {
+  bottomBar(`<button class="btn" data-nav="top">戻る</button>`);
+  $app.innerHTML = `
+  <h1>このツールについて</h1>
+  <div class="card">
+    <h3>立場</h3>
+    <p>授業を代わりに作るツールではなく、教員の意思決定を支援するツールです。教材と目標を固定したまま、目標へ到達する<b>別の経路</b>を複数提示します。出力は必ず教員が確認・修正して使用してください。</p>
+    <h3>個人情報について</h3>
+    <p>生徒・学級に関する項目は完全選択式です。自由記述は教材・目標・授業内容に限定しています。入力内容は外部サーバーへ一切送信されません。「保存」はこの端末のブラウザ内（localStorage）にのみ行われます。</p>
+    <h3>著作権について</h3>
+    <p>教科書本文・挿絵・設問は収録していません。収録しているのは教材名と、独自に作成した授業設計用データのみです。</p>
+    <h3>教材データについて</h3>
+    <p>教材リストは参考データです。教科書の版によって教材名・構成が異なるため、実際の教科書と照合してご利用ください。</p>
+    <h3>非公式ツールであること</h3>
+    <p>本ツールは非公式であり、光村図書出版株式会社とは関係ありません。</p>
+    <h3>保存データの削除</h3>
+    <button class="btn danger" id="btn-clear-storage">この端末の保存データを全て削除</button>
+  </div>`;
+};
+
+/* STEP1 基本条件 */
+SCREENS.step1 = () => {
+  bottomBar(`<button class="btn" data-nav="top">戻る</button><button class="btn primary" data-nav="step2" id="next1">次へ</button>`);
+  const mats = state.grade ? materialsByGrade(state.grade) : [];
+  $app.innerHTML = `
+  ${progressBar(1)}
+  <h2>基本条件</h2>
+  ${stepResetBtn("step1")}
+  <div class="field"><label>学年</label>
+    ${chips(["中学1年","中学2年","中学3年"], state.grade ? ["中学" + state.grade + "年"] : [], false, "grade")}
+  </div>
+  <div class="field"><label>教材</label>
+    ${state.grade ? `
+      <input type="text" id="mat-filter" placeholder="教材名で絞り込み" aria-label="教材名で絞り込み">
+      <div class="choice-list" id="mat-list" style="margin-top:8px">
+        ${mats.map(m => `<button type="button" class="choice" data-mat="${m.id}" aria-pressed="${state.materialId === m.id}">${esc(m.title)}<span class="small" style="margin-left:auto">${esc(CATEGORIES[m.category].label)}</span></button>`).join("")}
+        <button type="button" class="choice" data-mat="other" aria-pressed="${state.materialId === "other"}">その他（教材名のみ入力）</button>
+      </div>
+      ${state.materialId === "other" ? `
+        <div class="field"><label>教材名</label>
+        <p class="pii-note">教材名のみ入力してください。学校名・学級名は入力しないでください。</p>
+        <input type="text" id="custom-mat" value="${esc(state.customMaterialTitle)}" placeholder="例：教科書掲載の教材名">
+        <div class="field"><label>教材種別</label><select id="custom-cat">${Object.values(CATEGORIES).map(c => `<option value="${c.id}" ${state.customCategory === c.id ? "selected" : ""}>${esc(c.label)}</option>`).join("")}</select></div>
+        </div>` : ""}
+      <p class="small">※参考データのため、版により教材名が異なる場合があります。</p>
+    ` : `<p class="small">先に学年を選んでください。</p>`}
+  </div>
+  <div class="field"><label>授業時間</label>
+    ${chips(["45分","50分"], [state.duration === 45 ? "45分" : "50分"], false, "duration")}
+  </div>
+  <div class="field"><label>使用可能な環境（複数選択）</label>${clearMultiBtn("environment", state.environment.length)}
+    ${chips(ENVIRONMENTS, state.environment, true, "environment")}
+  </div>`;
+  const f = document.getElementById("mat-filter");
+  if (f) f.addEventListener("input", () => {
+    const v = f.value.trim();
+    document.querySelectorAll("#mat-list [data-mat]").forEach(b => {
+      b.style.display = !v || b.textContent.includes(v) ? "" : "none";
+    });
+  });
+  const cm = document.getElementById("custom-mat");
+  if (cm) cm.addEventListener("input", () => { state.customMaterialTitle = cm.value; });
+  const cc = document.getElementById("custom-cat");
+  if (cc) cc.addEventListener("change", () => { state.customCategory = cc.value; state.lessonStage = null; });
+};
+
+/* STEP2 本時の条件 */
+SCREENS.step2 = () => {
+  bottomBar(`<button class="btn" data-nav="step1">戻る</button><button class="btn primary" data-nav="step3" id="next2">次へ</button>`);
+  const ctx = ctxFromState();
+  const stages = ctx.material ? (ctx.material.stages || STAGES_BY_CATEGORY.mixed) : [];
+  const cands = ctx.material && state.lessonStage ? getObjectiveCandidates(ctx.material.category, state.lessonStage) : [];
+  const objWarn = checkObjectiveWording(state.objective);
+  $app.innerHTML = `
+  ${progressBar(2)}
+  <h2>本時の条件</h2>
+  ${stepResetBtn("step2")}
+  <div class="field"><label>本時の段階</label>
+    ${stages.length ? chips(stages, state.lessonStage ? [state.lessonStage] : [], false, "lessonStage") : `<p class="small">先に教材を選んでください。</p>`}
+  </div>
+  <div class="field"><label>本時の目標</label>
+    <p class="pii-note">教材・目標・授業内容のみ入力してください。学校名、生徒名、学級名、個別の記録は入力しないでください。</p>
+    ${cands.length ? `<p class="small">候補から選ぶ：</p><div class="choice-list">${cands.map(c => `<button type="button" class="choice" data-obj-cand="${esc(c)}" aria-pressed="${state.objective === c}">${esc(c)}</button>`).join("")}</div>` : ""}
+    <textarea id="objective" placeholder="例：叙述を根拠に、人物の考え方の変化を説明できる。">${esc(state.objective)}</textarea>
+    ${objWarn ? `<div class="warn-item">${esc(objWarn)}</div>` : ""}
+    <div class="field"><label>目標タイプ ${state.objectiveType ? "" : "（自動判定できない場合は選択）"}</label>
+      ${chips(OBJECTIVE_TYPES, state.objectiveType ? [state.objectiveType] : [], false, "objectiveType")}
+    </div>
+  </div>
+  <div class="field"><label>固定したい要素（複数選択）</label>${clearMultiBtn("fixedElements", state.fixedElements.length)}
+    ${chips(FIXED_ELEMENTS, state.fixedElements, true, "fixedElements")}
+  </div>
+  ${state.fixedElements.includes("現在の中心発問を残す") ? `
+    <div class="field"><label>現在考えている中心発問</label>
+    <p class="pii-note">授業内容のみ入力してください。</p>
+    <input type="text" id="cur-q" value="${esc(state.currentQuestion)}" placeholder="例：主人公が最も変わった一文はどこか。"></div>` : ""}
+  ${state.fixedElements.includes("現在の活動を残す") ? `
+    <div class="field"><label>現在考えている活動</label>
+    <p class="pii-note">授業内容のみ入力してください。</p>
+    <input type="text" id="cur-a" value="${esc(state.currentActivity)}" placeholder="例：心情曲線を書く"></div>` : ""}
+  <div class="field"><label>避けたい活動（複数選択）</label>${clearMultiBtn("avoidedElements", state.avoidedElements.length)}
+    ${chips(AVOIDED_ELEMENTS, state.avoidedElements, true, "avoidedElements")}
+  </div>`;
+  const ob = document.getElementById("objective");
+  ob.addEventListener("input", () => {
+    state.objective = ob.value;
+    const t = detectObjectiveType(ob.value);
+    if (t) { state.objectiveType = t; document.querySelectorAll('[data-key="objectiveType"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.chip === t)); }
+    document.querySelectorAll("[data-obj-cand]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.objCand === state.objective)));
+  });
+  const cq = document.getElementById("cur-q"); if (cq) cq.addEventListener("input", () => state.currentQuestion = cq.value);
+  const ca = document.getElementById("cur-a"); if (ca) ca.addEventListener("input", () => state.currentActivity = ca.value);
+};
+
+/* STEP3 学級傾向 */
+SCREENS.step3 = () => {
+  bottomBar(`<button class="btn" data-nav="step2">戻る</button><button class="btn primary" data-nav="step4">次へ</button>`);
+  $app.innerHTML = `
+  ${progressBar(3)}
+  <h2>学級全体の学習傾向</h2>
+  ${stepResetBtn("step3")}${clearMultiBtn("classTendencies", state.classTendencies.length)}
+  <p class="small">選択式のみ・任意です。個別の生徒についての情報は扱いません。目安は5項目まで。</p>
+  ${chips(["特に指定しない"], state.classTendencies.length === 0 && state._noTendency ? ["特に指定しない"] : [], false, "noTendency")}
+  ${Object.entries(TENDENCIES).map(([g, items]) => `<h3>${esc(g)}</h3>${chips(items, state.classTendencies, true, "classTendencies")}`).join("")}
+  ${state.classTendencies.length > 5 ? `<div class="warn-item">条件が多いと、授業案が複雑になる可能性があります。特に重視する項目を選んでください。</div>` : ""}`;
+};
+
+/* STEP4 困りごと */
+SCREENS.step4 = () => {
+  bottomBar(`<button class="btn" data-nav="step3">戻る</button><button class="btn primary" data-nav="step5">次へ</button>`);
+  $app.innerHTML = `
+  ${progressBar(4)}
+  <h2>いま困っていること</h2>
+  ${stepResetBtn("step4")}${clearMultiBtn("concerns", state.concerns.length)}
+  <p class="small">複数選択できます。「困りごと解決ガチャ」で打ち手を提示します。</p>
+  <div class="choice-list">${CONCERNS.map(c => `<button type="button" class="choice" data-chip="${esc(c)}" data-multi="1" data-key="concerns" aria-pressed="${state.concerns.includes(c)}">${esc(c)}</button>`).join("")}</div>`;
+};
+
+/* STEP5 モード選択 */
+SCREENS.step5 = () => {
+  const ready = state.grade && state.materialId && state.lessonStage && (state.objective || "").trim() && state.objectiveType;
+  bottomBar(`<button class="btn" data-nav="step4">戻る</button><button class="btn gacha" id="btn-roll" ${ready ? "" : "disabled style='opacity:.5'"}>ガチャを引く</button>`);
+  const modes = [
+    ["three", "まとめて3案", "同じ教材・目標から、方向性の異なる3案を生成します。"],
+    ["partial", "部分ガチャ", "選んだ項目（発問・活動・支援など）だけを引きます。"],
+    ["route", "別ルートガチャ", "現在の案を残しつつ、切り口の異なる経路を提示します。"],
+    ["concern", "困りごと解決ガチャ", "選択した困りごとへの打ち手を3つずつ提示します。"]
+  ];
+  $app.innerHTML = `
+  ${progressBar(5)}
+  <h2>ガチャモード</h2>
+  ${stepResetBtn("step5")}
+  ${ready ? "" : `<div class="warn-item">教材・本時の段階・本時の目標（と目標タイプ）が未設定です。STEP1・2に戻って設定してください。${state.objective && !state.objectiveType ? "目標タイプを判定できなかったため、STEP2で選択してください。" : ""}</div>`}
+  <div class="choice-list">
+    ${modes.map(([id, name, desc]) => `<button type="button" class="choice" data-chip="${id}" data-multi="0" data-key="mode" aria-pressed="${state.mode === id}" style="flex-direction:column;align-items:flex-start"><b>${esc(name)}</b><span class="small">${esc(desc)}</span></button>`).join("")}
+  </div>
+  ${state.mode === "partial" ? `<div class="field"><label>引く項目（複数選択）</label>${clearMultiBtn("partialFields", state.partialFields.length)}
+    ${chips(["intro","core","question","activities","supports","assessment","reflection"].map(partialLabel), state.partialFields.map(partialLabel), true, "partialFieldsLabel")}
+  </div>` : ""}
+  ${state.mode === "route" ? `<div class="field"><label>別ルートの方向（最大3つ・未選択なら自動）</label>${clearMultiBtn("routePrefs", state.routePrefs.length)}
+    ${chips(["交流を減らす案","記述を増やす案","比較を中心にする案","根拠を中心にする案","時間を短縮する案"], state.routePrefs, true, "routePrefs")}
+  </div>` : ""}
+  ${state.mode === "concern" && !state.concerns.length ? `<div class="warn-item">STEP4で困りごとが選択されていません。戻って選択してください。</div>` : ""}`;
+};
+function partialLabel(id) {
+  return { intro: "導入", core: "授業の核", question: "中心発問", activities: "学習活動", supports: "支援", assessment: "見取り", reflection: "振り返り" }[id] || id;
+}
+function partialIdFromLabel(label) {
+  const map = { "導入": "intro", "授業の核": "core", "中心発問": "question", "学習活動": "activities", "支援": "supports", "見取り": "assessment", "振り返り": "reflection" };
+  return map[label] || label;
+}
+
+/* 結果画面 */
+function secHtml(i, key, name, bodyHtml, copyText_) {
+  const locked = !!state.locks[i][key];
+  return `<div class="plan-sec">
+    <div class="sec-head"><span class="sec-name">${esc(name)}</span>
+      <span class="sec-tools">
+        <button class="icon-btn ${locked ? "locked" : ""}" data-lock="${i}:${key}" aria-label="${esc(name)}を${locked ? "ロック解除" : "キープ（ロック）"}">${locked ? "🔒キープ中" : "キープ"}</button>
+        <button class="icon-btn" data-redraw="${i}:${key}" aria-label="${esc(name)}だけ引き直す">引き直す</button>
+        <button class="icon-btn" data-copysec="${i}:${key}" aria-label="${esc(name)}をコピー">コピー</button>
+      </span>
+    </div>
+    <div class="sec-body">${bodyHtml}</div>
+  </div>`;
+}
+
+function planCardHtml(plan, i) {
+  const q = plan.question || {};
+  const opTag = THINKING_OP_DISPLAY[plan.mainOp];
+  const assess = assessmentNatural(plan.assessment);
+  return `<div class="card plan-card ${i === 1 ? "alt" : ""}">
+    <span class="tanzaku">${esc(plan.direction)}</span>
+    <div class="plan-title">案${["一","二","三"][i] || i + 1}</div>
+    ${secHtml(i, "core", RESULT_LABELS.core, esc(plan.core) + (opTag ? `<div class="small">${esc(opTag)}授業です。</div>` : ""))}
+    ${secHtml(i, "question", RESULT_LABELS.question, `<b>${esc(q.text)}</b><div class="small">この問いで考えさせたいこと：${esc(q.intention)}</div>`)}
+    ${secHtml(i, "activities", RESULT_LABELS.activities, (plan.fixedNotes && plan.fixedNotes.pre.length ? `<div class="small">${plan.fixedNotes.pre.map(esc).join("<br>")}</div>` : "") + `<ol>${(plan.activities || []).map(a => `<li><b>${esc(a.title)}</b>（約${a.duration}分）<div class="small">${a.steps.map(esc).join(" → ")}</div></li>`).join("")}</ol>`)}
+    ${secHtml(i, "supports", RESULT_LABELS.supports, `<ul>${(plan.supports || []).map(s => `<li><b>${esc(s.title)}</b>：${esc(s.text)}</li>`).join("")}</ul>`)}
+    ${secHtml(i, "assessment", RESULT_LABELS.assessment, plan.assessment ? `${esc(assess[0])}<div class="small">${esc(assess[1])}</div>` : "")}
+    ${secHtml(i, "reflection", RESULT_LABELS.reflection, `<ul>${(plan.reflection || []).map(r => `<li>${esc(r)}</li>`).join("")}</ul>`)}
+    <div class="reason"><b>この案のよさ</b><p style="margin:6px 0 0">${esc(plan.rationale.fit)}</p></div>
+    ${plan.warnings && plan.warnings.length ? `<div class="warn-list">${plan.warnings.map(w => `<div class="warn-item">${esc(w)}</div>`).join("")}</div>` : ""}
+    <details class="more"><summary>困ったときの手立てを見る</summary>
+      <div class="sec-body">
+        <b>こんな反応が出そう</b><ul>${(plan.expected || []).map(e => `<li>${esc(e)}</li>`).join("")}</ul>
+        <b>もう一歩考えさせる問い</b><ul>${(q.followUps || []).map(f => `<li>${esc(f)}</li>`).join("")}</ul>
+        <b>止まったときのひと押し</b><ul>${(q.supportQuestions || []).map(f => `<li>${esc(f)}</li>`).join("")}</ul>
+        <b>時間が足りないとき</b><p>${esc(plan.shortcut)}</p>
+        <b>反応が出ないとき</b><p>${esc(plan.altIfFlat)}</p>
+        ${plan.rationale.note ? `<b>気をつけたいこと</b><p>${esc(plan.rationale.note)}</p>` : ""}
+      </div>
+    </details>
+    <div class="btn-row">
+      <button class="btn primary" data-adopt="${i}">この案を採用して編集へ</button>
+      <button class="btn" data-redraw-card="${i}">この案を引き直す</button>
+      <button class="btn" data-copy-card="${i}">全文コピー</button>
+    </div>
+  </div>`;
+}
+
+SCREENS.result = () => {
+  bottomBar(`<button class="btn" data-nav="step5">条件に戻る</button><button class="btn gacha" id="btn-reroll-all">3案とも引き直す</button>`);
+  $app.innerHTML = `
+  <h2>授業の別ルート　3案</h2>
+  <div class="notice blue">そのまま使用せず、教材・目標・学級の状況に合わせて修正してください。「キープ」した項目は引き直しても変わりません。</div>
+  ${state.plans.map((p, i) => planCardHtml(p, i)).join("")}`;
+};
+
+SCREENS.resultPartial = () => {
+  bottomBar(`<button class="btn" data-nav="step5">条件に戻る</button><button class="btn gacha" id="btn-repartial">もう一度引く</button>`);
+  const r = state.partialResult;
+  const rows = r.fields.map(f => {
+    let body = "";
+    const d = r.data[f];
+    if (f === "intro") body = esc(d);
+    else if (f === "core") body = esc(d);
+    else if (f === "question") body = `<b>${esc(d.text)}</b><div class="small">この問いで考えさせたいこと：${esc(d.intention)}</div><div class="small">もう一歩考えさせる問い：${d.followUps.map(esc).join("／")}</div>`;
+    else if (f === "activities") body = `<ol>${d.map(a => `<li><b>${esc(a.title)}</b>（約${a.duration}分）<div class="small">${a.steps.map(esc).join(" → ")}</div></li>`).join("")}</ol>`;
+    else if (f === "supports") body = `<ul>${d.map(s => `<li><b>${esc(s.title)}</b>：${esc(s.text)}</li>`).join("")}</ul>`;
+    else if (f === "assessment") body = `${esc(assessmentNatural(d)[0])}<div class="small">${esc(assessmentNatural(d)[1])}</div>`;
+    else if (f === "reflection") body = `<ul>${d.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`;
+    return `<div class="plan-sec"><div class="sec-head"><span class="sec-name">${esc(partialLabel(f))}</span>
+      <span class="sec-tools"><button class="icon-btn" data-partial-redraw="${f}">引き直す</button><button class="icon-btn" data-partial-copy="${f}">コピー</button></span></div>
+      <div class="sec-body">${body}</div></div>`;
+  }).join("");
+  $app.innerHTML = `<h2>部分ガチャの結果</h2><div class="card">${rows}</div>
+  <p class="small">気に入った項目は、コピーして手元の授業案に貼り付けてください。</p>`;
+};
+
+SCREENS.resultConcern = () => {
+  bottomBar(`<button class="btn" data-nav="step5">条件に戻る</button>`);
+  $app.innerHTML = `<h2>困りごとへの打ち手</h2>` + state.concerns.map(c => `
+    <div class="card"><h3 style="margin-top:0">${esc(c)}</h3>
+    ${concernSolutions(c).map((s, i) => `<div class="plan-sec"><div class="sec-name">打ち手${i + 1}：${esc(s.title)}</div><div class="sec-body">${esc(s.how)}</div></div>`).join("")}
+    </div>`).join("");
+};
+
+/* 編集画面 */
+SCREENS.edit = () => {
+  bottomBar(`<button class="btn" data-nav="result">結果に戻る</button><button class="btn primary" id="btn-to-output">出力へ</button>`);
+  const e = state.edited;
+  const fld = (key, label, value, tall) => `
+    <div class="field"><label>${esc(label)}</label>
+    <textarea data-edit="${key}" ${tall ? 'style="min-height:130px"' : ""}>${esc(value)}</textarea></div>`;
+  $app.innerHTML = `
+  <h2>授業設計メモの編集</h2>
+  <div class="notice">自由入力欄には、教材・目標・授業内容のみ記入してください。学校名、生徒名、学級名、個別の記録は入力しないでください。</div>
+  <div class="btn-row"><button class="btn small" id="btn-reset-edit">ガチャ結果に戻す</button></div>
+  ${fld("core", "この案でやること", e.core)}
+  ${fld("question", "授業の真ん中に置く問い", e.question)}
+  ${fld("activities", "生徒の動き", e.activities, true)}
+  ${fld("followUps", "もう一歩考えさせる問い・止まったときのひと押し", e.followUps)}
+  ${fld("expected", "こんな反応が出そう", e.expected)}
+  ${fld("supports", "止まったときの助け", e.supports)}
+  ${fld("assessment", "見取り", e.assessment)}
+  ${fld("reflection", "最後に考えさせたいこと", e.reflection)}
+  ${fld("shortcut", "時間が足りないとき・反応が出ないとき", e.shortcut)}
+  ${fld("note", "気をつけたいこと", e.note)}
+  ${fld("memo", "教員メモ（任意）", e.memo)}`;
+  document.querySelectorAll("[data-edit]").forEach(ta => {
+    ta.addEventListener("input", () => { state.edited[ta.dataset.edit] = ta.value; });
+  });
+};
+
+function makeEditable(plan, ctx) {
+  const q = plan.question || {};
+  return {
+    core: plan.core,
+    question: q.text || "",
+    activities: (plan.fixedNotes && plan.fixedNotes.pre.length ? plan.fixedNotes.pre.join("\n") + "\n" : "") +
+      (plan.activities || []).map((a, i) => `${i + 1}．${a.title}（約${a.duration}分）\n　${a.steps.join(" → ")}`).join("\n"),
+    followUps: (q.followUps || []).concat(q.supportQuestions || []).map(f => "・" + f).join("\n"),
+    expected: (plan.expected || []).map(x => "・" + x).join("\n"),
+    supports: (plan.supports || []).map(s => `・${s.title}：${s.text}`).join("\n"),
+    assessment: plan.assessment ? assessmentNatural(plan.assessment).join("\n") : "",
+    reflection: (plan.reflection || []).map(r => "・" + r).join("\n"),
+    shortcut: plan.shortcut + "\n" + plan.altIfFlat,
+    note: (plan.rationale ? plan.rationale.note : ""),
+    fit: plan.rationale ? plan.rationale.fit : "",
+    direction: plan.direction,
+    memo: ""
+  };
+}
+
+/* 出力画面 */
+SCREENS.output = () => {
+  bottomBar(`<button class="btn" data-nav="edit">編集に戻る</button>`);
+  $app.innerHTML = `
+  <h2>出力</h2>
+  <div class="card">
+    <h3 style="margin-top:0">A4印刷・PDF保存</h3>
+    <p class="small">印刷画面から、紙への印刷またはPDF保存を選べます。</p>
+    <div class="btn-row">
+      <button class="btn primary" data-print="1">A4・1枚版（授業準備用）</button>
+      <button class="btn primary" data-print="2">A4・2枚版（授業研究用）</button>
+    </div>
+    <h3>コピー</h3>
+    <div class="btn-row">
+      <button class="btn" id="btn-copy-all">全文コピー</button>
+    </div>
+    <div class="btn-row">
+      ${["question:中心発問", "activities:学習活動", "supports:支援", "assessment:見取り", "reflection:振り返り", "core:授業の中心"].map(x => { const [k, l] = x.split(":"); return `<button class="btn small" data-copy-item="${k}">${esc(l)}だけ</button>`; }).join("")}
+    </div>
+  </div>
+  <p class="small">出力前チェック：目標とのつながり／教材との整合／時間内に収まるか／見取り場面／個人情報が含まれていないか。</p>`;
+};
+
+function editedToText() {
+  const ctx = ctxFromState(); const e = state.edited;
+  const L = [];
+  const add = (label, body) => { if (body && String(body).trim()) L.push(`【${label}】\n${body}`); };
+  add("学年", ctx.grade ? `中学${ctx.grade}年` : "");
+  add("教材", ctx.material ? ctx.material.title : "");
+  add("本時の段階", ctx.lessonStage);
+  add("授業時間", (ctx.duration || 50) + "分");
+  add("本時の目標", ctx.objective);
+  add("方向性", e.direction);
+  add("授業の中心", e.core);
+  add("中心発問", e.question);
+  add("学習活動", e.activities);
+  add("支援", e.supports);
+  add("見取り", e.assessment);
+  add("振り返り", e.reflection);
+  add("問い返し・補助発問", e.followUps);
+  add("想定される反応", e.expected);
+  add("時間不足時・代替案", e.shortcut);
+  add("留意点", e.note);
+  add("教員メモ", e.memo);
+  L.push("―――\n※このメモは授業づくりの叩き台です。教材・目標・学級の状況に合わせて修正して使用してください。");
+  return L.join("\n\n");
+}
+
+/* 印刷 */
+function buildPrintSheet(pages) {
+  const ctx = ctxFromState(); const e = state.edited;
+  const b = (label, body, cls) => body && String(body).trim() ? `<div class="p-block ${cls || ""}"><div class="p-label">${esc(label)}</div><div class="p-body">${esc(body)}</div></div>` : "";
+  let html = `<div class="print-sheet">
+    <h1>授業設計メモ${pages === 2 ? "（詳細版）" : ""}</h1>
+    <div class="p-meta">
+      <span>学年：中学${esc(ctx.grade)}年</span>
+      <span>教材：${esc(ctx.material ? ctx.material.title : "")}</span>
+      <span>段階：${esc(ctx.lessonStage)}</span>
+      <span>時間：${esc(ctx.duration)}分</span>
+      <span>方向性:${esc(e.direction)}</span>
+    </div>
+    ${b("本時の目標", ctx.objective)}
+    ${b("授業の中心", e.core)}
+    ${b("中心発問", e.question)}
+    ${b("学習活動", e.activities)}
+    ${b("支援", e.supports)}
+    ${b("見取り", e.assessment)}
+    ${b("振り返り", e.reflection)}
+    <div class="p-block p-memo"><div class="p-label">教員メモ</div><div class="p-body">${esc(e.memo)}</div></div>`;
+  if (pages === 2) {
+    html += `<div class="page-break"></div>
+    <h1>検討用資料（2枚目）</h1>
+    ${b("この案のよさ", e.fit)}
+    ${b("想定される反応", e.expected)}
+    ${b("問い返し・補助発問", e.followUps)}
+    ${b("時間不足時の対応", e.shortcut)}
+    ${b("留意点", e.note)}`;
+  }
+  html += `<div class="p-foot">授業設計ガチャ（授業づくりの叩き台）／そのまま使用せず、教材・目標・学級の状況に合わせて修正して使用してください。</div></div>`;
+  return html;
+}
+
+function openPrint(pages) {
+  showChecklist(() => {
+    document.getElementById("print-root").innerHTML = buildPrintSheet(pages);
+    setTimeout(() => {
+      try { window.print(); }
+      catch (e) { toast("印刷画面を開けませんでした。ブラウザの共有・印刷機能から出力してください"); }
+    }, 60);
+  });
+}
+
+/* 出力前チェックリスト */
+function showChecklist(onOk) {
+  const items = ["本時の目標につながっている", "教材の内容と矛盾していない", "学級全体の傾向に合っている", "時間内に実施できる", "見取る場面が明確である", "個人情報を入力していない"];
+  $modal.innerHTML = `<div class="modal-back" id="mback"><div class="modal" role="dialog" aria-label="出力前の確認">
+    <h2>出力前の確認</h2>
+    ${items.map(x => `<label class="check-line"><input type="checkbox" class="check-item">${esc(x)}</label>`).join("")}
+    <div class="btn-row"><button class="btn" id="mcancel">戻る</button><button class="btn primary" id="mok" disabled>確認して出力</button></div>
+    <p class="small">すべての項目を確認すると、出力できるようになります。</p>
+  </div></div>`;
+  const boxes = [...document.querySelectorAll(".check-item")];
+  const okBtn = document.getElementById("mok");
+  boxes.forEach(b => b.addEventListener("change", () => { okBtn.disabled = !boxes.every(x => x.checked); }));
+  document.getElementById("mcancel").onclick = () => $modal.innerHTML = "";
+  document.getElementById("mback").addEventListener("click", ev => { if (ev.target.id === "mback") $modal.innerHTML = ""; });
+  document.getElementById("mok").onclick = () => { $modal.innerHTML = ""; onOk(); };
+}
+
+/* 下書き保存 */
+function saveDraft() {
+  $modal.innerHTML = `<div class="modal-back" id="mback"><div class="modal" role="dialog" aria-label="下書きの保存">
+    <h2>この端末に下書きを保存</h2>
+    <p class="small">入力内容は、この端末のブラウザ内にのみ保存されます。外部には送信されません。共有端末では保存しないでください。</p>
+    <div class="btn-row"><button class="btn" id="mcancel">やめる</button><button class="btn primary" id="mok">保存する</button></div>
+  </div></div>`;
+  document.getElementById("mcancel").onclick = () => $modal.innerHTML = "";
+  document.getElementById("mback").addEventListener("click", ev => { if (ev.target.id === "mback") $modal.innerHTML = ""; });
+  document.getElementById("mok").onclick = () => {
+    try {
+      const dump = JSON.parse(JSON.stringify(state));
+      dump._savedAt = new Date().toISOString(); dump._version = APP_VERSION;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(dump));
+      toast("この端末に下書きを保存しました");
+    } catch (e) { toast("このブラウザでは保存できませんでした。全文コピーまたはPDF保存をご利用ください"); }
+    $modal.innerHTML = "";
+  };
+}
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) { toast("保存された下書きはありません"); return; }
+    const d = JSON.parse(raw);
+    Object.keys(state).forEach(k => { if (k in d) state[k] = d[k]; });
+    toast("下書きを読み込みました（" + (d._savedAt || "").slice(0, 10) + "保存）");
+    render(state.plans && state.plans.length ? "result" : "step1");
+  } catch (e) { toast("下書きを読み込めませんでした"); }
+}
+function clearStorage() {
+  $modal.innerHTML = `<div class="modal-back" id="mback"><div class="modal" role="dialog">
+    <h2>保存データの全削除</h2><p class="small">この端末に保存された下書きを削除します。元に戻せません。</p>
+    <div class="btn-row"><button class="btn" id="mcancel">やめる</button><button class="btn danger" id="mok">削除する</button></div></div></div>`;
+  document.getElementById("mcancel").onclick = () => $modal.innerHTML = "";
+  document.getElementById("mok").onclick = () => { try { localStorage.removeItem(STORAGE_KEY); toast("保存データを削除しました"); } catch (e) {} $modal.innerHTML = ""; };
+}
+
+function confirmResetAll() {
+  $modal.innerHTML = `<div class="modal-back" id="mback"><div class="modal" role="dialog" aria-label="最初からやり直す">
+    <h2>最初からやり直す</h2>
+    <p class="small">入力した条件とガチャ結果をすべて消して、最初からやり直しますか？<br>この端末に保存済みの下書きは削除されません。</p>
+    <div class="btn-row"><button class="btn" id="mcancel">やめる</button><button class="btn danger" id="mok">最初からやり直す</button></div>
+  </div></div>`;
+  document.getElementById("mcancel").onclick = () => $modal.innerHTML = "";
+  document.getElementById("mback").addEventListener("click", ev => { if (ev.target.id === "mback") $modal.innerHTML = ""; });
+  document.getElementById("mok").onclick = () => { $modal.innerHTML = ""; resetAllState(); render("step1"); toast("最初の状態に戻しました"); };
+}
+
+/* ============ ルーティング・イベント ============ */
+function render(screen) {
+  if (screen) state.screen = screen;
+  (SCREENS[state.screen] || SCREENS.top)();
+  window.scrollTo(0, 0);
+}
+
+function validateStep(from) {
+  if (from === "step1") {
+    if (!state.grade) { toast("学年を選んでください"); return false; }
+    if (!state.materialId) { toast("教材を選んでください"); return false; }
+  }
+  if (from === "step2") {
+    if (!state.lessonStage) { toast("本時の段階を選んでください"); return false; }
+  }
+  return true;
+}
+
+function rollGacha() {
+  const ctx = ctxFromState();
+  if (state.mode === "concern") {
+    if (!state.concerns.length) { toast("STEP4で困りごとを選んでください"); return; }
+    render("resultConcern"); return;
+  }
+  if (state.mode === "partial") {
+    const fields = state.partialFields.length ? state.partialFields : ["question", "activities"];
+    state.partialResult = generatePartial(ctx, fields);
+    render("resultPartial"); return;
+  }
+  const routePrefs = state.mode === "route" ? (state.routePrefs.length ? state.routePrefs.slice(0, 3) : ["比較を中心にする案", "根拠を中心にする案", "時間を短縮する案"]) : null;
+  state.locks = [{}, {}, {}];
+  try {
+    state.plans = generatePlans(ctx, routePrefs);
+    if (!state.plans.length || !state.plans[0].activities || !state.plans[0].activities.length) {
+      toast("選択された条件では候補が見つかりませんでした。固定条件または避けたい活動を一部見直してください"); return;
+    }
+    render("result");
+  } catch (e) {
+    console.error(e);
+    toast("生成でエラーが発生しました。条件を見直してください");
+  }
+}
+
+function redrawField(i, key) {
+  if (state.locks[i][key]) { toast("この項目はキープ中です。キープを外すと引き直せます"); return; }
+  const ctx = ctxFromState();
+  const dirId = state.plans[i].dirId;
+  const dir = DIRECTIONS.find(d => d.id === dirId) || DIRECTIONS[0];
+  const locks = {};
+  ["core", "question", "activities", "supports", "assessment", "reflection"].forEach(k => { if (k !== key) locks[k] = true; });
+  const np = buildPlan(ctx, dir, locks, state.plans[i]);
+  np.direction = state.plans[i].direction;
+  state.plans[i] = np;
+  render("result");
+}
+
+function sectionCopyText(i, key) {
+  const p = state.plans[i]; const ctx = ctxFromState();
+  const full = planToText(ctx, p);
+  const map = COPY_LABELS;
+  const label = map[key];
+  const m = full.split("\n\n").find(x => x.startsWith("【" + label + "】"));
+  return m || "";
+}
+
+document.addEventListener("click", ev => {
+  const t = ev.target.closest("button, [role=button]");
+  if (!t) return;
+  if (t.dataset.nav) {
+    const from = state.screen;
+    if ((t.dataset.nav === "step2" && from === "step1" && !validateStep("step1")) ||
+        (t.dataset.nav === "step3" && from === "step2" && !validateStep("step2"))) return;
+    render(t.dataset.nav); return;
+  }
+  if (t.id === "brand-home") { render("top"); return; }
+  if (t.id === "btn-save-draft") { saveDraft(); return; }
+  if (t.id === "btn-reset-all") { confirmResetAll(); return; }
+  if (t.dataset.stepReset) {
+    const fn = STEP_RESETS[t.dataset.stepReset];
+    if (fn) { fn(); render(t.dataset.stepReset); toast("この画面の選択をリセットしました"); }
+    return;
+  }
+  if (t.dataset.clearMulti) {
+    const key = t.dataset.clearMulti;
+    state[key] = [];
+    if (key === "classTendencies") state._noTendency = false;
+    render(state.screen); return;
+  }
+  if (t.id === "btn-load-draft") { loadDraft(); return; }
+  if (t.id === "btn-clear-storage") { clearStorage(); return; }
+  if (t.id === "btn-roll") { rollGacha(); return; }
+  if (t.id === "btn-reroll-all") {
+    const ctx = ctxFromState();
+    const routePrefs = state.mode === "route" ? (state.routePrefs.length ? state.routePrefs.slice(0, 3) : null) : null;
+    state.plans = generatePlans(ctx, routePrefs, state.plans, state.locks);
+    render("result"); return;
+  }
+  if (t.id === "btn-repartial") {
+    state.partialResult = generatePartial(ctxFromState(), state.partialResult.fields);
+    render("resultPartial"); return;
+  }
+  if (t.id === "btn-to-output") { render("output"); return; }
+  if (t.id === "btn-reset-edit") {
+    state.edited = makeEditable(state.plans[state.selectedIndex], ctxFromState());
+    render("edit"); toast("ガチャ結果に戻しました"); return;
+  }
+  if (t.id === "btn-copy-all") { showChecklist(() => copyText(editedToText(), "全文")); return; }
+  if (t.dataset.copyItem) {
+    const key = t.dataset.copyItem;
+    const label = { question: "中心発問", activities: "学習活動", supports: "支援", assessment: "見取り", reflection: "振り返り", core: "授業の中心" }[key];
+    copyText(`【${label}】\n` + (state.edited[key] || ""), label); return;
+  }
+  if (t.dataset.print) { openPrint(Number(t.dataset.print)); return; }
+  if (t.dataset.adopt != null) {
+    state.selectedIndex = Number(t.dataset.adopt);
+    state.edited = makeEditable(state.plans[state.selectedIndex], ctxFromState());
+    render("edit"); return;
+  }
+  if (t.dataset.redrawCard != null) {
+    const i = Number(t.dataset.redrawCard);
+    const ctx = ctxFromState();
+    const dir = DIRECTIONS.find(d => d.id === state.plans[i].dirId) || DIRECTIONS[0];
+    state.plans[i] = buildPlan(ctx, dir, state.locks[i], state.plans[i]);
+    render("result"); return;
+  }
+  if (t.dataset.copyCard != null) {
+    copyText(planToText(ctxFromState(), state.plans[Number(t.dataset.copyCard)]), "この案の全文"); return;
+  }
+  if (t.dataset.lock) {
+    const [i, key] = t.dataset.lock.split(":");
+    state.locks[i][key] = !state.locks[i][key];
+    render("result"); return;
+  }
+  if (t.dataset.redraw) {
+    const [i, key] = t.dataset.redraw.split(":");
+    redrawField(Number(i), key); return;
+  }
+  if (t.dataset.copysec) {
+    const [i, key] = t.dataset.copysec.split(":");
+    copyText(sectionCopyText(Number(i), key), "この項目"); return;
+  }
+  if (t.dataset.partialRedraw) {
+    const f = t.dataset.partialRedraw;
+    const nr = generatePartial(ctxFromState(), [f]);
+    state.partialResult.data[f] = nr.data[f];
+    render("resultPartial"); return;
+  }
+  if (t.dataset.partialCopy) {
+    const f = t.dataset.partialCopy; const d = state.partialResult.data[f];
+    let text = "";
+    if (typeof d === "string") text = d;
+    else if (f === "question") text = d.text + "\n（この問いで考えさせたいこと）" + d.intention + "\n（問い返し）" + d.followUps.join("／");
+    else if (f === "activities") text = d.map((a, i2) => `${i2 + 1}．${a.title}（約${a.duration}分）\n　${a.steps.join(" → ")}`).join("\n");
+    else if (f === "supports") text = d.map(s => `・${s.title}：${s.text}`).join("\n");
+    else if (f === "assessment") text = assessmentNatural(d).join("\n");
+    else if (f === "reflection") text = d.map(x => "・" + x).join("\n");
+    copyText(`【${partialLabel(f)}】\n` + text, partialLabel(f)); return;
+  }
+  if (t.dataset.mat) {
+    state.materialId = t.dataset.mat;
+    render("step1"); return;
+  }
+  if (t.dataset.objCand != null) {
+    state.objective = t.dataset.objCand;
+    state.objectiveType = detectObjectiveType(state.objective) || state.objectiveType;
+    render("step2"); return;
+  }
+  if (t.dataset.chip != null) {
+    const key = t.dataset.key, val = t.dataset.chip, multi = t.dataset.multi === "1";
+    if (key === "grade") { state.grade = Number(val.replace(/[^0-9]/g, "")); state.materialId = null; state.lessonStage = null; render("step1"); return; }
+    if (key === "duration") { state.duration = val === "45分" ? 45 : val === "50分" ? 50 : 50; render("step1"); return; }
+    if (key === "noTendency") { state.classTendencies = []; state._noTendency = true; render("step3"); return; }
+    if (key === "mode") { state.mode = val; render("step5"); return; }
+    if (key === "partialFieldsLabel") {
+      const id = partialIdFromLabel(val);
+      const idx = state.partialFields.indexOf(id);
+      if (idx >= 0) state.partialFields.splice(idx, 1); else state.partialFields.push(id);
+      render("step5"); return;
+    }
+    if (key === "lessonStage") { state.lessonStage = val; render("step2"); return; }
+    if (key === "objectiveType") { state.objectiveType = val; render("step2"); return; }
+    if (key === "concerns") {
+      const NONE = "特に困りごとはない";
+      if (val === NONE) {
+        state.concerns = state.concerns.includes(NONE) ? [] : [NONE];
+      } else {
+        const idx = state.concerns.indexOf(val);
+        if (idx >= 0) state.concerns.splice(idx, 1);
+        else { state.concerns = state.concerns.filter(c => c !== NONE); state.concerns.push(val); }
+      }
+      render(state.screen); return;
+    }
+    if (multi) {
+      const arr = state[key];
+      const idx = arr.indexOf(val);
+      if (idx >= 0) arr.splice(idx, 1); else arr.push(val);
+      if (key === "classTendencies") state._noTendency = false;
+      render(state.screen); return;
+    }
+    state[key] = val; render(state.screen);
+  }
+});
+document.getElementById("brand-home").addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") render("top"); });
+
+window.APP_STATE = state;
+render("top");
+</script>
+</body>
+</html>
